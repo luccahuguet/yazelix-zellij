@@ -1,3 +1,9 @@
+> Yazelix fork note: this branch is an experimental Zellij runtime for Ghostty
+> and Yazi image previews. It preserves Kitty graphics APC frames for use with
+> the paired [`luccahuguet/yazelix-yazi`](https://github.com/luccahuguet/yazelix-yazi)
+> fork and the `YAZELIX_ZELLIJ_KITTY_PASSTHROUGH=1` runtime signal. Use the
+> `yazelix-kgp-preview-0` tag when testing this paired path.
+
 <h1 align="center">
   <br>
   <img src="https://raw.githubusercontent.com/zellij-org/zellij/main/assets/logo.png" alt="logo" width="200">
