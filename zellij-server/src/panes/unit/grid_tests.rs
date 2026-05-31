@@ -5726,6 +5726,54 @@ fn new_grid_for_forwarding_test() -> Grid {
 }
 
 #[test]
+fn kitty_apc_replay_uses_captured_cursor_position() {
+    // Defends: replayed Kitty graphics must land at the pane-relative cursor
+    // position where the APC was captured, including the render content offset.
+    let mut parser = vte::Parser::new();
+    let mut grid = new_grid_for_forwarding_test();
+    for byte in b"\x1b[3;5H" {
+        parser.advance(&mut grid, *byte);
+    }
+
+    grid.push_kitty_apc(b"Ga=T,f=100;AAAA".to_vec());
+
+    let (_, raw_vte_output, _) = grid
+        .render(10, 20, &Style::default())
+        .unwrap()
+        .expect("Kitty APC render should produce output");
+    assert_eq!(
+        raw_vte_output.expect("Kitty APC render should include raw VTE"),
+        "\x1b[23;15H\x1b_Ga=T,f=100;AAAA\x1b\\"
+    );
+}
+
+#[test]
+fn kitty_apc_replay_preserves_cursor_position_per_chunk() {
+    // Defends: multi-APC Kitty frames keep the cursor cell captured with each
+    // chunk, so replay does not collapse all chunks back to the pane origin.
+    let mut parser = vte::Parser::new();
+    let mut grid = new_grid_for_forwarding_test();
+    for byte in b"\x1b[2;4H" {
+        parser.advance(&mut grid, *byte);
+    }
+    grid.push_kitty_apc(b"Ga=T,m=1;part1".to_vec());
+
+    for byte in b"\x1b[4;8H" {
+        parser.advance(&mut grid, *byte);
+    }
+    grid.push_kitty_apc(b"Gm=0;part2".to_vec());
+
+    let (_, raw_vte_output, _) = grid
+        .render(10, 20, &Style::default())
+        .unwrap()
+        .expect("Kitty APC render should produce output");
+    assert_eq!(
+        raw_vte_output.expect("Kitty APC render should include raw VTE"),
+        "\x1b[22;14H\x1b_Ga=T,m=1;part1\x1b\\\x1b[24;18H\x1b_Gm=0;part2\x1b\\"
+    );
+}
+
+#[test]
 fn csi_14t_forwards_to_host_not_local() {
     // CSI 14t used to synthesize a local "\x1b[4;H;Wt" reply; after the
     // refactor it must be forwarded to the host instead so apps observe

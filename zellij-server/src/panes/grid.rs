@@ -13,7 +13,7 @@ use zellij_utils::errors::prelude::*;
 use std::{
     cmp::Ordering,
     collections::{BTreeSet, VecDeque},
-    fmt::{self, Debug, Formatter},
+    fmt::{self, Debug, Formatter, Write},
     str,
 };
 
@@ -591,6 +591,13 @@ fn position_in_span(
 }
 
 #[derive(Clone)]
+struct KittyApcChunk {
+    data: Vec<u8>,
+    cursor_x: usize,
+    cursor_y: usize,
+}
+
+#[derive(Clone)]
 pub struct Grid {
     pub(crate) lines_above: VecDeque<Row>,
     pub(crate) viewport: VecDeque<Row>,
@@ -677,11 +684,11 @@ pub struct Grid {
     pub hover_position: Option<Position>, // pane-relative cursor cell; None when outside pane
     pub cached_hover_tooltip: Option<String>,
     /// APCs for the frame currently being assembled (may be incomplete)
-    kitty_apc_building: Vec<Vec<u8>>,
+    kitty_apc_building: Vec<KittyApcChunk>,
     /// Running byte total of kitty_apc_building to avoid O(n) sum per push
     kitty_apc_building_size: usize,
     /// Last fully complete frame (terminated with m=0), ready to emit
-    kitty_apc_ready: Option<Vec<Vec<u8>>>,
+    kitty_apc_ready: Option<Vec<KittyApcChunk>>,
     /// True when kitty_apc_ready needs to be (re-)emitted
     kitty_apc_dirty: bool,
     combining_chars: HashMap<(usize, usize), Vec<char>>, // (viewport_row, col) -> combining marks
@@ -1039,7 +1046,11 @@ impl Grid {
         }
 
         self.kitty_apc_building_size += data.len();
-        self.kitty_apc_building.push(data);
+        self.kitty_apc_building.push(KittyApcChunk {
+            data,
+            cursor_x: self.cursor.x,
+            cursor_y: self.cursor.y,
+        });
 
         if is_final {
             // Frame complete -> promote to ready; recycle old ready's allocation for next frame
@@ -1737,14 +1748,21 @@ impl Grid {
         // Emit Kitty graphics frame only when dirty (new frame or full re-render like tab switch)
         if self.kitty_apc_dirty {
             if let Some(frame) = self.kitty_apc_ready.as_ref() {
-                let total_len: usize = frame.iter().map(|d| d.len() + 4).sum();
+                let total_len: usize = frame.iter().map(|chunk| chunk.data.len() + 32).sum();
                 raw_vte_output.reserve(total_len);
-                for apc_data in frame {
+                for chunk in frame {
+                    write!(
+                        raw_vte_output,
+                        "\x1b[{};{}H",
+                        content_y + chunk.cursor_y + 1,
+                        content_x + chunk.cursor_x + 1,
+                    )
+                    .expect("writing Kitty APC cursor position into String cannot fail");
                     raw_vte_output.push_str("\x1b_");
-                    if let Ok(s) = std::str::from_utf8(apc_data) {
+                    if let Ok(s) = std::str::from_utf8(&chunk.data) {
                         raw_vte_output.push_str(s);
                     } else {
-                        for &b in apc_data {
+                        for &b in &chunk.data {
                             raw_vte_output.push(b as char);
                         }
                     }
