@@ -1,8 +1,25 @@
-> Yazelix fork note: this branch is an experimental Zellij runtime for Ghostty
-> and Yazi image previews. It preserves Kitty graphics APC frames for use with
-> the paired [`luccahuguet/yazelix-yazi`](https://github.com/luccahuguet/yazelix-yazi)
-> fork and the `YAZELIX_ZELLIJ_KITTY_PASSTHROUGH=1` runtime signal. Use the
-> `yazelix-kgp-preview-0` tag when testing this paired path.
+# Yazelix Zellij Temporary Fork
+
+This branch is a temporary Yazelix fork of Zellij for restoring managed Yazi
+image previews through Kitty graphics passthrough in the default Ghostty
+runtime.
+
+| Field | Value |
+| --- | --- |
+| Upstream project | Zellij |
+| Fork category | Temporary fork |
+| Why this fork exists | Yazelix needs Zellij to preserve Kitty graphics APC frames for the managed Ghostty + Zellij + Yazi preview path |
+| Current Yazelix delta | KGP preview branch selected by Yazelix package outputs; preserves Kitty graphics APC frames when `YAZELIX_ZELLIJ_KITTY_PASSTHROUGH=1` is present |
+| Paired fork | [`luccahuguet/yazelix-yazi`](https://github.com/luccahuguet/yazelix-yazi) |
+| Non-goals | This fork does not own general Zellij UX, Yazelix layout policy, or long-term graphics architecture once upstream supports the needed path |
+| Standalone support | Not a general standalone Zellij distribution; use it only for the Yazelix KGP preview path or focused validation of that delta |
+| Upstream sync cadence | Monthly and whenever upstream Zellij changes Kitty graphics behavior |
+| Removal gate | Drop and archive this fork once upstream Zellij supports the required Kitty graphics path directly enough for Yazelix to return to upstream packages |
+
+Main Yazelix fork policy lives in
+[Fork and child-repo maintenance](https://github.com/luccahuguet/yazelix/blob/main/docs/contracts/fork_child_repo_maintenance.md).
+
+## Upstream Zellij README
 
 <h1 align="center">
   <br>
