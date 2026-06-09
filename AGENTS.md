@@ -10,7 +10,9 @@ Only Yazelix Zellij temporary-fork guidance belongs here.
 ## Local Scope
 
 - This repo is a temporary fork of Zellij for the Yazelix Kitty graphics preview path.
-- Keep the local delta limited to the KGP/APC passthrough behavior needed by Yazelix.
+- Keep the local delta limited to behavior that cannot be owned cleanly by the
+  main Yazelix repo, currently KGP/APC passthrough and the Yazelix terminal
+  title shim that needs Zellij's generated session name.
 - Treat `upstream` as read-only reference unless the maintainer explicitly asks for upstream work.
 - Do not add main Yazelix layout or pane-orchestrator policy here.
 

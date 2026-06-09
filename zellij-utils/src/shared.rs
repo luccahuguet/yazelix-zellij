@@ -11,6 +11,8 @@ use colorsys::{Ansi256, Rgb};
 use strip_ansi_escapes::strip;
 use unicode_width::UnicodeWidthStr;
 
+pub const YAZELIX_TERMINAL_WINDOW_TITLE_PREFIX_ENV: &str = "YAZELIX_TERMINAL_WINDOW_TITLE_PREFIX";
+
 #[cfg(unix)]
 pub use unix_only::*;
 
@@ -68,6 +70,15 @@ pub fn adjust_to_size(s: &str, rows: usize, columns: usize) -> String {
 }
 
 pub fn make_terminal_title(pane_title: &str) -> String {
+    if let (Ok(prefix), Ok(session_name)) = (
+        std::env::var(YAZELIX_TERMINAL_WINDOW_TITLE_PREFIX_ENV),
+        get_session_name(),
+    ) {
+        if !prefix.is_empty() {
+            return format!("\u{1b}]0;{}{}\u{07}", prefix, session_name);
+        }
+    }
+
     format!(
         "\u{1b}]0;{}{}\u{07}",
         get_session_name()
@@ -225,4 +236,72 @@ pub fn parse_base_url(url: &str) -> Result<ServerAddress> {
         .ok_or_else(|| anyhow!("No port in URL"))?;
 
     Ok(ServerAddress { ip, port })
+}
+
+#[cfg(test)]
+mod tests {
+    // Test lane: default
+    use super::*;
+    use crate::envs::SESSION_NAME_ENV_KEY;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    struct EnvRestore {
+        key: &'static str,
+        previous: Option<std::ffi::OsString>,
+    }
+
+    impl EnvRestore {
+        fn set(key: &'static str, value: &str) -> Self {
+            let previous = std::env::var_os(key);
+            std::env::set_var(key, value);
+            Self { key, previous }
+        }
+
+        fn remove(key: &'static str) -> Self {
+            let previous = std::env::var_os(key);
+            std::env::remove_var(key);
+            Self { key, previous }
+        }
+    }
+
+    impl Drop for EnvRestore {
+        fn drop(&mut self) {
+            if let Some(value) = self.previous.as_ref() {
+                std::env::set_var(self.key, value);
+            } else {
+                std::env::remove_var(self.key);
+            }
+        }
+    }
+
+    // Defends: plain Zellij keeps its upstream terminal-title shape when Yazelix does not opt in.
+    #[test]
+    fn terminal_title_keeps_upstream_session_and_pane_shape_without_yazelix_prefix() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _session = EnvRestore::set(SESSION_NAME_ENV_KEY, "outstanding-jellyfish");
+        let _prefix = EnvRestore::remove(YAZELIX_TERMINAL_WINDOW_TITLE_PREFIX_ENV);
+
+        assert_eq!(
+            make_terminal_title("sidebar"),
+            "\u{1b}]0;outstanding-jellyfish | sidebar\u{07}"
+        );
+    }
+
+    // Defends: Yazelix runtimes use Zellij's actual session name without leaking focused pane titles.
+    #[test]
+    fn terminal_title_uses_yazelix_prefix_and_actual_zellij_session_name() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _session = EnvRestore::set(SESSION_NAME_ENV_KEY, "outstanding-jellyfish");
+        let _prefix = EnvRestore::set(
+            YAZELIX_TERMINAL_WINDOW_TITLE_PREFIX_ENV,
+            "Yazelix - Yzxterm - ",
+        );
+
+        assert_eq!(
+            make_terminal_title("sidebar"),
+            "\u{1b}]0;Yazelix - Yzxterm - outstanding-jellyfish\u{07}"
+        );
+    }
 }
