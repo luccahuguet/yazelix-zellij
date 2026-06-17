@@ -24,4 +24,4 @@ Only Yazelix Zellij temporary-fork guidance belongs here.
 
 ## Integration Notes
 
-This fork is paired with `yazelix-yazi`. The removal gate is upstream Zellij support for the required Kitty graphics path, allowing Yazelix to return to upstream packages.
+Main Yazelix uses upstream/nixpkgs Yazi with scoped managed-preview environment for the current KGP path. The removal gate is upstream Zellij support for the required Kitty graphics path, allowing Yazelix to return to upstream Zellij packages.
