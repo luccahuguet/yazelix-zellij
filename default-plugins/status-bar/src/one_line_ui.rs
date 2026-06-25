@@ -508,9 +508,9 @@ fn render_mode_key_indicators(
     } else {
         base_mode_normal_mode_indicators(help)
     };
-    match common_modifiers_in_all_modes(&default_keys) {
-        Some(modifiers) => {
-            if let Some(default_keys) = default_keys.get(&help.mode) {
+    if let Some(default_keys) = default_keys.get(&help.mode) {
+        match common_modifiers_for_shortcuts(default_keys) {
+            Some(modifiers) => {
                 let keys_without_common_modifiers: Vec<KeyShortcut> = default_keys
                     .iter()
                     .map(|key_shortcut| {
@@ -544,10 +544,8 @@ fn render_mode_key_indicators(
                         line_part_to_render.append(&shortened_shortcut_list);
                     }
                 }
-            }
-        },
-        None => {
-            if let Some(default_keys) = default_keys.get(&help.mode) {
+            },
+            None => {
                 let full_shortcut_list = full_modes_shortcut_list(&default_keys, help);
                 if line_part_to_render.len + full_shortcut_list.len <= max_len {
                     line_part_to_render.append(&full_shortcut_list);
@@ -558,8 +556,8 @@ fn render_mode_key_indicators(
                         line_part_to_render.append(&shortened_shortcut_list);
                     }
                 }
-            }
-        },
+            },
+        }
     }
     if line_part_to_render.len <= max_len {
         Some(line_part_to_render)
@@ -645,47 +643,18 @@ fn shortened_modes_shortcut_list(default_keys: &Vec<KeyShortcut>, help: &ModeInf
     shortened_shortcut_list
 }
 
-fn common_modifiers_in_all_modes(
-    key_shortcuts: &HashMap<InputMode, Vec<KeyShortcut>>,
-) -> Option<Vec<KeyModifier>> {
-    let Some(mut common_modifiers) = key_shortcuts.iter().next().and_then(|k| {
-        k.1.iter()
-            .next()
-            .and_then(|k| k.get_key().map(|k| k.key_modifiers.clone()))
-    }) else {
-        return None;
-    };
-    for (_mode, key_shortcuts) in key_shortcuts {
-        if key_shortcuts.is_empty() {
-            return None;
-        }
-        let Some(mut common_modifiers_for_mode) = key_shortcuts
+fn common_modifiers_for_shortcuts(key_shortcuts: &[KeyShortcut]) -> Option<Vec<KeyModifier>> {
+    let common_modifiers = get_common_modifiers(
+        key_shortcuts
             .iter()
-            .next()
-            .unwrap()
-            .get_key()
-            .map(|k| k.key_modifiers.clone())
-        else {
-            return None;
-        };
-        for key in key_shortcuts {
-            let Some(key) = key.get_key() else {
-                return None;
-            };
-            common_modifiers_for_mode = common_modifiers_for_mode
-                .intersection(&key.key_modifiers)
-                .cloned()
-                .collect();
-        }
-        common_modifiers = common_modifiers
-            .intersection(&common_modifiers_for_mode)
-            .cloned()
-            .collect();
-    }
+            .filter_map(|key_shortcut| key_shortcut.key.as_ref())
+            .collect(),
+    );
     if common_modifiers.is_empty() {
-        return None;
+        None
+    } else {
+        Some(common_modifiers)
     }
-    Some(common_modifiers.into_iter().collect())
 }
 
 fn render_common_modifiers(
@@ -1774,4 +1743,68 @@ fn get_common_modifiers(mut keyvec: Vec<&KeyWithModifier>) -> Vec<KeyModifier> {
             .collect();
     }
     common_modifiers.into_iter().collect()
+}
+
+#[cfg(test)]
+mod tests {
+    // Test lane: default
+    use super::*;
+
+    fn ctrl_alt(key: char) -> KeyWithModifier {
+        KeyWithModifier::new(BareKey::Char(key))
+            .with_ctrl_modifier()
+            .with_alt_modifier()
+    }
+
+    fn decoded_ui_text(line_part: LinePart) -> String {
+        line_part
+            .to_string()
+            .split("\u{1b}P")
+            .skip(1)
+            .filter_map(|chunk| chunk.split_once("\u{1b}\\").map(|(payload, _)| payload))
+            .filter_map(|payload| payload.split_once(';').map(|(_, text)| text))
+            .map(|text| text.rsplit_once('$').map_or(text, |(_, bytes)| bytes))
+            .map(|text| text.trim_start_matches(['z', 'x']))
+            .flat_map(|text| {
+                text.split(',')
+                    .filter_map(|byte| byte.parse::<u8>().ok())
+                    .map(char::from)
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+
+    // Regression: one-line mode hints must derive shared modifiers from the visible row.
+    #[test]
+    fn normal_mode_hints_share_ctrl_alt_with_other_modes_and_missing_move() {
+        #[rustfmt::skip]
+        let mode_info = ModeInfo {
+            mode: InputMode::Normal,
+            keybinds: vec![
+                (InputMode::Normal, vec![
+                    (ctrl_alt('g'), vec![Action::SwitchToMode { input_mode: InputMode::Locked }]),
+                    (ctrl_alt('p'), vec![Action::SwitchToMode { input_mode: InputMode::Pane }]),
+                    (ctrl_alt('t'), vec![Action::SwitchToMode { input_mode: InputMode::Tab }]),
+                    (ctrl_alt('n'), vec![Action::SwitchToMode { input_mode: InputMode::Resize }]),
+                    (ctrl_alt('s'), vec![Action::SwitchToMode { input_mode: InputMode::Scroll }]),
+                    (ctrl_alt('o'), vec![Action::SwitchToMode { input_mode: InputMode::Session }]),
+                    (ctrl_alt('q'), vec![Action::Quit]),
+                ]),
+                (InputMode::Pane, vec![
+                    (KeyWithModifier::new(BareKey::Char('p')).with_ctrl_modifier(), vec![Action::SwitchToMode { input_mode: InputMode::Normal }]),
+                ]),
+            ],
+            ..ModeInfo::default()
+        };
+
+        let line = render_mode_key_indicators(&mode_info, 500, ">", false).unwrap();
+        let line = decoded_ui_text(line);
+
+        assert!(line.contains("Ctrl-Alt +"));
+        assert!(line.contains("<g> LOCK"));
+        assert!(line.contains("<p> PANE"));
+        assert!(!line.contains("Ctrl-Alt g"));
+        assert!(!line.contains("Ctrl-Alt p"));
+        assert!(!line.contains("MOVE"));
+    }
 }
