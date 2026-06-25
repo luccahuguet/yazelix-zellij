@@ -517,27 +517,37 @@ fn render_balanced_mode_info(
         base_mode_normal_mode_indicators(help)
     };
     let default_keys = default_keys.get(&help.mode)?;
-    let secondary_info = secondary_keybinds(help, tab_info, max_len);
-    balanced_mode_shortcut_list(
-        default_keys,
-        help,
-        &colored_elements,
-        separator,
-        &secondary_info,
-        max_len,
-        false,
-    )
-    .or_else(|| {
-        balanced_mode_shortcut_list(
-            default_keys,
-            help,
-            &colored_elements,
-            separator,
-            &secondary_info,
-            max_len,
-            true,
-        )
-    })
+    let secondary_info = [
+        secondary_keybinds(help, tab_info, SecondaryHintStyle::Readable),
+        secondary_keybinds(help, tab_info, SecondaryHintStyle::Compact),
+        secondary_keybinds(help, tab_info, SecondaryHintStyle::KeyOnly),
+    ];
+    secondary_info
+        .iter()
+        .find_map(|secondary_info| {
+            balanced_mode_shortcut_list(
+                default_keys,
+                help,
+                &colored_elements,
+                separator,
+                secondary_info,
+                max_len,
+                false,
+            )
+        })
+        .or_else(|| {
+            secondary_info.iter().find_map(|secondary_info| {
+                balanced_mode_shortcut_list(
+                    default_keys,
+                    help,
+                    &colored_elements,
+                    separator,
+                    secondary_info,
+                    max_len,
+                    true,
+                )
+            })
+        })
 }
 
 fn balanced_mode_shortcut_list(
@@ -837,7 +847,49 @@ fn should_show_focus_and_resize_shortcuts(tab_info: Option<&TabInfo>) -> bool {
     }
 }
 
-fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usize) -> LinePart {
+#[derive(Clone, Copy)]
+enum SecondaryHintStyle {
+    Readable,
+    Compact,
+    KeyOnly,
+}
+
+impl SecondaryHintStyle {
+    fn new_pane(self) -> Option<&'static str> {
+        match self {
+            SecondaryHintStyle::Readable | SecondaryHintStyle::Compact => Some("New"),
+            SecondaryHintStyle::KeyOnly => None,
+        }
+    }
+
+    fn focus(self) -> Option<&'static str> {
+        match self {
+            SecondaryHintStyle::Readable | SecondaryHintStyle::Compact => Some("Focus"),
+            SecondaryHintStyle::KeyOnly => None,
+        }
+    }
+
+    fn resize(self) -> Option<&'static str> {
+        match self {
+            SecondaryHintStyle::Readable => Some("Resize"),
+            SecondaryHintStyle::Compact => Some("Size"),
+            SecondaryHintStyle::KeyOnly => None,
+        }
+    }
+
+    fn floating(self) -> Option<&'static str> {
+        match self {
+            SecondaryHintStyle::Readable | SecondaryHintStyle::Compact => Some("Float"),
+            SecondaryHintStyle::KeyOnly => None,
+        }
+    }
+}
+
+fn secondary_keybinds(
+    help: &ModeInfo,
+    tab_info: Option<&TabInfo>,
+    hint_style: SecondaryHintStyle,
+) -> LinePart {
     let mut secondary_info = LinePart::default();
     let binds = &help.get_mode_keybinds();
     let should_show_focus_and_resize_shortcuts = should_show_focus_and_resize_shortcuts(tab_info);
@@ -963,36 +1015,44 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
     let no_common_modifier = common_modifiers.is_empty();
 
     if no_common_modifier {
-        secondary_info.append(&add_shortcut(
+        append_secondary_hint(
             help,
-            "New Pane",
-            &new_pane_key_to_display,
+            &mut secondary_info,
+            hint_style.new_pane(),
+            new_pane_key_to_display,
             false,
             Some(0),
-        ));
+            false,
+        );
         if should_show_focus_and_resize_shortcuts {
-            secondary_info.append(&add_shortcut(
+            append_secondary_hint(
                 help,
-                "Change Focus",
-                &move_focus_shortcuts,
+                &mut secondary_info,
+                hint_style.focus(),
+                move_focus_shortcuts,
                 false,
                 Some(0),
-            ));
-            secondary_info.append(&add_shortcut(
+                false,
+            );
+            append_secondary_hint(
                 help,
-                "Resize",
-                &resize_shortcuts,
+                &mut secondary_info,
+                hint_style.resize(),
+                resize_shortcuts,
                 false,
                 Some(0),
-            ));
+                false,
+            );
         }
-        secondary_info.append(&add_shortcut(
+        append_secondary_hint(
             help,
-            "Floating",
-            &toggle_floating_key_to_display,
+            &mut secondary_info,
+            hint_style.floating(),
+            toggle_floating_key_to_display,
             are_floating_panes_visible,
             Some(0),
-        ));
+            false,
+        );
     } else {
         let modifier_str = text_as_line_part_with_emphasis(
             format!(
@@ -1022,142 +1082,72 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
             .iter()
             .map(|k| k.strip_common_modifiers(&common_modifiers))
             .collect();
-        secondary_info.append(&add_shortcut_with_inline_key(
+        append_secondary_hint(
             help,
-            "New Pane",
+            &mut secondary_info,
+            hint_style.new_pane(),
             new_pane_key_to_display,
             false,
-        ));
+            Some(0),
+            true,
+        );
         if should_show_focus_and_resize_shortcuts {
-            secondary_info.append(&add_shortcut_with_inline_key(
+            append_secondary_hint(
                 help,
-                "Change Focus",
+                &mut secondary_info,
+                hint_style.focus(),
                 move_focus_shortcuts,
                 false,
-            ));
-            secondary_info.append(&add_shortcut_with_inline_key(
+                Some(0),
+                true,
+            );
+            append_secondary_hint(
                 help,
-                "Resize",
+                &mut secondary_info,
+                hint_style.resize(),
                 resize_shortcuts,
                 false,
-            ));
+                Some(0),
+                true,
+            );
         }
-        secondary_info.append(&add_shortcut_with_inline_key(
+        append_secondary_hint(
             help,
-            "Floating",
+            &mut secondary_info,
+            hint_style.floating(),
             toggle_floating_key_to_display,
             are_floating_panes_visible,
-        ));
+            Some(0),
+            true,
+        );
     }
 
-    if secondary_info.len <= max_len {
-        secondary_info
+    secondary_info
+}
+
+fn append_secondary_hint(
+    help: &ModeInfo,
+    line_part: &mut LinePart,
+    text: Option<&str>,
+    key: Vec<KeyWithModifier>,
+    is_selected: bool,
+    key_color_index: Option<usize>,
+    inline_key: bool,
+) {
+    if let Some(text) = text {
+        if inline_key {
+            line_part.append(&add_shortcut_with_inline_key(help, text, key, is_selected));
+        } else {
+            line_part.append(&add_shortcut(
+                help,
+                text,
+                &key,
+                is_selected,
+                key_color_index,
+            ));
+        }
     } else {
-        let mut short_line = LinePart::default();
-        if no_common_modifier {
-            short_line.append(&add_shortcut(
-                help,
-                "New",
-                &new_pane_key_to_display,
-                false,
-                Some(0),
-            ));
-            if should_show_focus_and_resize_shortcuts {
-                short_line.append(&add_shortcut(
-                    help,
-                    "Focus",
-                    &move_focus_shortcuts,
-                    false,
-                    Some(0),
-                ));
-                short_line.append(&add_shortcut(
-                    help,
-                    "Resize",
-                    &resize_shortcuts,
-                    false,
-                    Some(0),
-                ));
-            }
-            short_line.append(&add_shortcut(
-                help,
-                "Floating",
-                &toggle_floating_key_to_display,
-                are_floating_panes_visible,
-                Some(0),
-            ));
-        } else {
-            let modifier_str = text_as_line_part_with_emphasis(
-                format!(
-                    "{} + ",
-                    common_modifiers
-                        .iter()
-                        .map(|m| m.to_string())
-                        .collect::<Vec<_>>()
-                        .join("-")
-                ),
-                0,
-            );
-            short_line.append(&modifier_str);
-            let new_pane_key_to_display: Vec<KeyWithModifier> = new_pane_key_to_display
-                .iter()
-                .map(|k| k.strip_common_modifiers(&common_modifiers))
-                .collect();
-            let move_focus_shortcuts: Vec<KeyWithModifier> = move_focus_shortcuts
-                .iter()
-                .map(|k| k.strip_common_modifiers(&common_modifiers))
-                .collect();
-            let resize_shortcuts: Vec<KeyWithModifier> = resize_shortcuts
-                .iter()
-                .map(|k| k.strip_common_modifiers(&common_modifiers))
-                .collect();
-            let toggle_floating_key_to_display: Vec<KeyWithModifier> =
-                toggle_floating_key_to_display
-                    .iter()
-                    .map(|k| k.strip_common_modifiers(&common_modifiers))
-                    .collect();
-            short_line.append(&add_shortcut_with_inline_key(
-                help,
-                "New",
-                new_pane_key_to_display,
-                false,
-            ));
-            if should_show_focus_and_resize_shortcuts {
-                short_line.append(&add_shortcut_with_inline_key(
-                    help,
-                    "Focus",
-                    move_focus_shortcuts,
-                    false,
-                ));
-                short_line.append(&add_shortcut_with_inline_key(
-                    help,
-                    "Resize",
-                    resize_shortcuts,
-                    false,
-                ));
-            }
-            short_line.append(&add_shortcut_with_inline_key(
-                help,
-                "Floating",
-                toggle_floating_key_to_display,
-                are_floating_panes_visible,
-            ));
-        }
-        if short_line.len <= max_len {
-            short_line
-        } else if max_len >= 3 {
-            let part = serialize_text(
-                &Text::new(format!("{:>width$}", "...", width = max_len))
-                    .color_range(0, ..)
-                    .opaque(),
-            );
-            let len = max_len;
-            LinePart { part, len }
-        } else {
-            LinePart {
-                part: "".to_owned(),
-                len: 0,
-            }
-        }
+        line_part.append(&add_shortcut_with_key_only(help, key, is_selected));
     }
 }
 
@@ -1985,6 +1975,7 @@ mod tests {
         assert!(!line.contains("Alt p"));
     }
 
+    // Regression: separated modifier groups should use the available width evenly.
     #[test]
     fn one_line_normal_mode_distributes_modifier_groups_evenly() {
         #[rustfmt::skip]
@@ -2016,6 +2007,7 @@ mod tests {
         assert!(first_gap.abs_diff(second_gap) <= 2);
     }
 
+    // Defends: Alt-m should advertise the Yazelix new-pane binding in normal mode.
     #[test]
     fn one_line_normal_mode_shows_stacked_new_pane_hint() {
         let mode_info = ModeInfo {
@@ -2039,6 +2031,60 @@ mod tests {
         let line = decoded_ui_text(line);
 
         assert!(line.contains("Alt +"));
-        assert!(line.contains("<m> New Pane"));
+        assert!(line.contains("<m> New"));
+    }
+
+    // Regression: secondary hints should compact before primary mode labels shorten.
+    #[test]
+    fn one_line_normal_mode_compacts_secondary_before_mode_labels() {
+        #[rustfmt::skip]
+        let mode_info = ModeInfo {
+            mode: InputMode::Normal,
+            keybinds: vec![(
+                InputMode::Normal,
+                vec![
+                    (ctrl_alt('g'), vec![Action::SwitchToMode { input_mode: InputMode::Locked }]),
+                    (ctrl_alt('s'), vec![Action::SwitchToMode { input_mode: InputMode::Scroll }]),
+                    (ctrl_alt('o'), vec![Action::SwitchToMode { input_mode: InputMode::Session }]),
+                    (ctrl('p'), vec![Action::SwitchToMode { input_mode: InputMode::Pane }]),
+                    (ctrl('t'), vec![Action::SwitchToMode { input_mode: InputMode::Tab }]),
+                    (ctrl('n'), vec![Action::SwitchToMode { input_mode: InputMode::Resize }]),
+                    (ctrl('q'), vec![Action::Quit]),
+                    (alt('m'), vec![Action::NewPane { direction: None, pane_name: None, start_suppressed: false }]),
+                    (KeyWithModifier::new(BareKey::Left).with_alt_modifier(), vec![Action::MoveFocusOrTab { direction: Direction::Left }]),
+                    (KeyWithModifier::new(BareKey::Down).with_alt_modifier(), vec![Action::MoveFocus { direction: Direction::Down }]),
+                    (KeyWithModifier::new(BareKey::Up).with_alt_modifier(), vec![Action::MoveFocus { direction: Direction::Up }]),
+                    (KeyWithModifier::new(BareKey::Right).with_alt_modifier(), vec![Action::MoveFocusOrTab { direction: Direction::Right }]),
+                    (KeyWithModifier::new(BareKey::Char('+')).with_alt_modifier(), vec![Action::Resize { resize: Resize::Increase, direction: None }]),
+                    (KeyWithModifier::new(BareKey::Char('-')).with_alt_modifier(), vec![Action::Resize { resize: Resize::Decrease, direction: None }]),
+                    (alt('f'), vec![Action::ToggleFloatingPanes]),
+                ],
+            )],
+            ..ModeInfo::default()
+        };
+        let tab_info = TabInfo {
+            selectable_tiled_panes_count: 2,
+            ..TabInfo::default()
+        };
+
+        let line = (1..220)
+            .map(|width| one_line_ui(&mode_info, Some(&tab_info), width, ">", false, None, false))
+            .map(decoded_ui_text)
+            .find(|line| {
+                line.contains("<g> LOCK")
+                    && line.contains("<p> PANE")
+                    && line.contains("<n> RESIZE")
+                    && line.contains("<q> QUIT")
+                    && line.contains("<m> New")
+                    && line.contains("Focus")
+                    && line.contains("Size")
+                    && line.contains("Float")
+                    && !line.contains("<+-> Resize")
+            })
+            .expect("full mode labels should survive compact secondary hints");
+
+        assert!(line.contains("Ctrl-Alt +"));
+        assert!(line.contains("Ctrl +"));
+        assert!(line.contains("Alt +"));
     }
 }
