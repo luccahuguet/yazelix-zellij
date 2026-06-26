@@ -895,6 +895,11 @@ fn request_permission(env: &PluginEnv, permissions: Vec<PermissionType>) -> Resu
     if PermissionCache::from_path_or_default(None)
         .check_permissions(env.plugin.location.to_string(), &permissions)
     {
+        log::info!(
+            "Plugin {} already has cached permissions for {}",
+            env.plugin_id,
+            env.plugin.location
+        );
         return env
             .senders
             .send_to_plugin(PluginInstruction::PermissionRequestResult(
@@ -914,6 +919,12 @@ fn request_permission(env: &PluginEnv, permissions: Vec<PermissionType>) -> Resu
             plugin_id: env.plugin_id,
         });
 
+    log::info!(
+        "Plugin {} requested permissions for {}: {:?}",
+        env.plugin_id,
+        env.plugin.location,
+        permissions
+    );
     env.senders
         .send_to_screen(ScreenInstruction::RequestPluginPermissions(
             env.plugin_id,

@@ -8494,6 +8494,10 @@ pub(crate) fn screen_thread_main(
                 let all_tabs = screen.get_tabs_mut();
                 let found = all_tabs.values_mut().any(|tab| {
                     if tab.has_plugin(plugin_id) {
+                        log::info!(
+                            "PluginId '{}' found - showing permission request",
+                            plugin_id
+                        );
                         tab.request_plugin_permissions(plugin_id, Some(plugin_permission.clone()));
                         true
                     } else {
