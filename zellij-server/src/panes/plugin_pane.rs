@@ -404,6 +404,9 @@ impl Pane for PluginPane {
         self.handle_plugin_bytes_for_all_clients(Default::default()); // to trigger the render of
                                                                       // the permission message
     }
+    fn has_pending_permission_request(&self) -> bool {
+        self.requesting_permissions.is_some()
+    }
     fn render(
         &mut self,
         client_id: Option<ClientId>,

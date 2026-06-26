@@ -272,6 +272,9 @@ pub trait Pane {
         _prompt_geom: Option<PaneGeom>,
     ) {
     }
+    fn has_pending_permission_request(&self) -> bool {
+        false
+    }
     fn render(
         &mut self,
         client_id: Option<ClientId>,
@@ -728,7 +731,7 @@ fn request_permissions_from_pane(
     let prompt_geom = permissions
         .as_ref()
         .and_then(|permissions| permission_prompt_geom(viewport, pane, permissions));
-    let should_focus_pane = prompt_geom.is_some();
+    let should_focus_pane = permissions.is_some();
     pane.request_permissions_from_user(permissions, prompt_geom);
     should_focus_pane
 }
@@ -5594,7 +5597,11 @@ impl Tab {
             let should_focus_pane =
                 request_permissions_from_pane(plugin_pane.as_mut(), viewport, permissions);
             if clearing_permissions {
-                if let Some(active_panes) = self.plugin_permission_prompt_focus.remove(&pid) {
+                let active_panes = self.plugin_permission_prompt_focus.remove(&pid);
+                if self.focus_pending_permission_prompt() {
+                    return;
+                }
+                if let Some(active_panes) = active_panes {
                     for (client_id, pane_id) in active_panes {
                         if self.tiled_panes.get_pane(pane_id).is_some() {
                             self.tiled_panes.focus_pane(pane_id, client_id);
@@ -5642,6 +5649,39 @@ impl Tab {
         if should_focus_pane {
             self.focus_suppressed_pane_for_all_clients(PaneId::Plugin(pid));
         }
+    }
+    fn focus_pending_permission_prompt(&mut self) -> bool {
+        let pending_tiled_pane = self
+            .tiled_panes
+            .get_panes()
+            .find(|(_, pane)| pane.has_pending_permission_request())
+            .map(|(pane_id, _)| *pane_id);
+        if let Some(pane_id) = pending_tiled_pane {
+            self.tiled_panes.focus_pane_for_all_clients(pane_id);
+            return true;
+        }
+
+        let pending_floating_pane = self
+            .floating_panes
+            .get_panes()
+            .find(|(_, pane)| pane.has_pending_permission_request())
+            .map(|(pane_id, _)| *pane_id);
+        if let Some(pane_id) = pending_floating_pane {
+            self.floating_panes.focus_pane_for_all_clients(pane_id);
+            return true;
+        }
+
+        let pending_suppressed_pane = self
+            .suppressed_panes
+            .values()
+            .find(|(_, pane)| pane.has_pending_permission_request())
+            .map(|(_, pane)| pane.pid());
+        if let Some(pane_id) = pending_suppressed_pane {
+            self.focus_suppressed_pane_for_all_clients(pane_id);
+            return true;
+        }
+
+        false
     }
     pub fn rerun_terminal_pane_with_id(
         &mut self,
