@@ -5596,12 +5596,6 @@ impl Tab {
             let clearing_permissions = permissions.is_none();
             let should_focus_pane =
                 request_permissions_from_pane(plugin_pane.as_mut(), viewport, permissions);
-            log::info!(
-                "PluginId '{}' permission request in tiled pane; clearing: {}, focus: {}",
-                pid,
-                clearing_permissions,
-                should_focus_pane
-            );
             if clearing_permissions {
                 let active_panes = self.plugin_permission_prompt_focus.remove(&pid);
                 if self.focus_pending_permission_prompt() {
@@ -5625,15 +5619,8 @@ impl Tab {
         }
 
         if let Some(plugin_pane) = self.floating_panes.get_pane_mut(pane_id) {
-            let clearing_permissions = permissions.is_none();
             let should_focus_pane =
                 request_permissions_from_pane(plugin_pane.as_mut(), viewport, permissions);
-            log::info!(
-                "PluginId '{}' permission request in floating pane; clearing: {}, focus: {}",
-                pid,
-                clearing_permissions,
-                should_focus_pane
-            );
             if should_focus_pane {
                 self.floating_panes.focus_pane_for_all_clients(pane_id);
             }
@@ -5656,12 +5643,6 @@ impl Tab {
                 suppressed_pane.set_should_be_suppressed(true);
                 should_focus_pane = true;
             }
-            log::info!(
-                "PluginId '{}' permission request in suppressed pane; clearing: {}, focus: {}",
-                pid,
-                permissions.is_none(),
-                should_focus_pane
-            );
             suppressed_pane.request_permissions_from_user(permissions, None);
         }
 

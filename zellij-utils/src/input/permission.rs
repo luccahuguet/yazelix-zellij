@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    env,
     fs::{self, File},
     io::Write,
     path::PathBuf,
@@ -43,7 +44,9 @@ impl PermissionCache {
     }
 
     pub fn from_path_or_default(cache_path: Option<PathBuf>) -> Self {
-        let cache_path = cache_path.unwrap_or(ZELLIJ_PLUGIN_PERMISSIONS_CACHE.to_path_buf());
+        let cache_path = cache_path
+            .or_else(|| env::var_os("ZELLIJ_PLUGIN_PERMISSIONS_CACHE").map(PathBuf::from))
+            .unwrap_or(ZELLIJ_PLUGIN_PERMISSIONS_CACHE.to_path_buf());
 
         let granted = match fs::read_to_string(cache_path.clone()) {
             Ok(raw_string) => PermissionCache::from_string(raw_string).unwrap_or_default(),
