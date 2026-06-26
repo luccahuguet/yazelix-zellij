@@ -66,7 +66,7 @@ use zellij_utils::{
         },
         parse_keys,
     },
-    pane_size::{Offset, PaneGeom, Size, SizeInPixels, Viewport},
+    pane_size::{Dimension, Offset, PaneGeom, Size, SizeInPixels, Viewport},
 };
 
 #[macro_export]
@@ -188,6 +188,7 @@ pub(crate) struct Tab {
     terminal_emulator_colors: Rc<RefCell<Palette>>,
     terminal_emulator_color_codes: Rc<RefCell<HashMap<usize, String>>>,
     pids_waiting_resize: HashSet<u32>, // u32 is the terminal_id
+    plugin_permission_prompt_focus: HashMap<u32, HashMap<ClientId, PaneId>>,
     cursor_positions_and_shape: HashMap<ClientId, (usize, usize, String)>, // (x_position,
     // y_position,
     // cursor_shape_csi)
@@ -265,7 +266,12 @@ pub trait Pane {
     fn set_should_render_boundaries(&mut self, _should_render: bool) {}
     fn selectable(&self) -> bool;
     fn set_selectable(&mut self, selectable: bool);
-    fn request_permissions_from_user(&mut self, _permissions: Option<PluginPermission>) {}
+    fn request_permissions_from_user(
+        &mut self,
+        _permissions: Option<PluginPermission>,
+        _prompt_geom: Option<PaneGeom>,
+    ) {
+    }
     fn render(
         &mut self,
         client_id: Option<ClientId>,
@@ -695,6 +701,38 @@ pub enum AdjustedInput {
     DropToShellInThisPane { working_dir: Option<PathBuf> },
     WriteKeyToPlugin(KeyWithModifier),
 }
+
+fn permission_prompt_geom(
+    viewport: Viewport,
+    pane: &dyn Pane,
+    permissions: &PluginPermission,
+) -> Option<PaneGeom> {
+    let min_rows = permissions.permissions.len() + 4;
+    if !viewport.has_positive_size() || pane.get_content_rows() >= min_rows {
+        return None;
+    }
+    Some(PaneGeom {
+        x: viewport.x,
+        y: viewport.y,
+        rows: Dimension::fixed(viewport.rows),
+        cols: Dimension::fixed(viewport.cols),
+        ..Default::default()
+    })
+}
+
+fn request_permissions_from_pane(
+    pane: &mut dyn Pane,
+    viewport: Viewport,
+    permissions: Option<PluginPermission>,
+) -> bool {
+    let prompt_geom = permissions
+        .as_ref()
+        .and_then(|permissions| permission_prompt_geom(viewport, pane, permissions));
+    let should_focus_pane = prompt_geom.is_some();
+    pane.request_permissions_from_user(permissions, prompt_geom);
+    should_focus_pane
+}
+
 pub fn get_next_terminal_position(
     tiled_panes: &TiledPanes,
     floating_panes: &FloatingPanes,
@@ -843,6 +881,7 @@ impl Tab {
             terminal_emulator_colors,
             terminal_emulator_color_codes,
             pids_waiting_resize: HashSet::new(),
+            plugin_permission_prompt_focus: HashMap::new(),
             cursor_positions_and_shape: HashMap::new(),
             is_pending: true, // will be switched to false once the layout is applied
             pending_instructions: vec![],
@@ -5548,33 +5587,58 @@ impl Tab {
         Ok(())
     }
     pub fn request_plugin_permissions(&mut self, pid: u32, permissions: Option<PluginPermission>) {
-        let mut should_focus_pane = false;
-        if let Some(plugin_pane) = self
-            .tiled_panes
-            .get_pane_mut(PaneId::Plugin(pid))
-            .or_else(|| self.floating_panes.get_pane_mut(PaneId::Plugin(pid)))
-            .or_else(|| {
-                let mut suppressed_pane = self
-                    .suppressed_panes
-                    .values_mut()
-                    .find(|s_p| s_p.1.pid() == PaneId::Plugin(pid))
-                    .map(|s_p| &mut s_p.1);
-                if let Some(suppressed_pane) = suppressed_pane.as_mut() {
-                    if permissions.is_some() {
-                        // here what happens is that we're requesting permissions for a pane that
-                        // is suppressed, meaning the user cannot see the permission request
-                        // so we temporarily focus this pane as a floating pane, marking it so that
-                        // once the permissions are accepted/rejected by the user, it will be
-                        // suppressed again
-                        suppressed_pane.set_should_be_suppressed(true);
-                        should_focus_pane = true;
+        let pane_id = PaneId::Plugin(pid);
+        let viewport = *self.viewport.borrow();
+        if let Some(plugin_pane) = self.tiled_panes.get_pane_mut(pane_id) {
+            let clearing_permissions = permissions.is_none();
+            let should_focus_pane =
+                request_permissions_from_pane(plugin_pane.as_mut(), viewport, permissions);
+            if clearing_permissions {
+                if let Some(active_panes) = self.plugin_permission_prompt_focus.remove(&pid) {
+                    for (client_id, pane_id) in active_panes {
+                        if self.tiled_panes.get_pane(pane_id).is_some() {
+                            self.tiled_panes.focus_pane(pane_id, client_id);
+                        }
                     }
                 }
-                suppressed_pane
-            })
-        {
-            plugin_pane.request_permissions_from_user(permissions);
+            } else if should_focus_pane {
+                if !self.plugin_permission_prompt_focus.contains_key(&pid) {
+                    self.plugin_permission_prompt_focus
+                        .insert(pid, self.tiled_panes.active_panes().clone_active_panes());
+                }
+                self.tiled_panes.focus_pane_for_all_clients(pane_id);
+            }
+            return;
         }
+
+        if let Some(plugin_pane) = self.floating_panes.get_pane_mut(pane_id) {
+            let should_focus_pane =
+                request_permissions_from_pane(plugin_pane.as_mut(), viewport, permissions);
+            if should_focus_pane {
+                self.floating_panes.focus_pane_for_all_clients(pane_id);
+            }
+            return;
+        }
+
+        let mut should_focus_pane = false;
+        if let Some(suppressed_pane) = self
+            .suppressed_panes
+            .values_mut()
+            .find(|s_p| s_p.1.pid() == pane_id)
+            .map(|s_p| &mut s_p.1)
+        {
+            if permissions.is_some() {
+                // here what happens is that we're requesting permissions for a pane that
+                // is suppressed, meaning the user cannot see the permission request
+                // so we temporarily focus this pane as a floating pane, marking it so that
+                // once the permissions are accepted/rejected by the user, it will be
+                // suppressed again
+                suppressed_pane.set_should_be_suppressed(true);
+                should_focus_pane = true;
+            }
+            suppressed_pane.request_permissions_from_user(permissions, None);
+        }
+
         if should_focus_pane {
             self.focus_suppressed_pane_for_all_clients(PaneId::Plugin(pid));
         }

@@ -101,6 +101,7 @@ pub(crate) struct PluginPane {
     invoked_with: Option<Run>,
     loading_indication: LoadingIndication,
     requesting_permissions: Option<PluginPermission>,
+    permission_prompt_geom_override: bool,
     debug: bool,
     arrow_fonts: bool,
     styled_underlines: bool,
@@ -158,6 +159,7 @@ impl PluginPane {
             invoked_with,
             loading_indication,
             requesting_permissions: None,
+            permission_prompt_geom_override: false,
             debug,
             arrow_fonts,
             styled_underlines,
@@ -385,7 +387,19 @@ impl Pane for PluginPane {
         self.cursor_visibility.insert(client_id, cursor_position);
         self.should_render.insert(client_id, true);
     }
-    fn request_permissions_from_user(&mut self, permissions: Option<PluginPermission>) {
+    fn request_permissions_from_user(
+        &mut self,
+        permissions: Option<PluginPermission>,
+        prompt_geom: Option<PaneGeom>,
+    ) {
+        if self.permission_prompt_geom_override {
+            self.reset_size_and_position_override();
+            self.permission_prompt_geom_override = false;
+        }
+        if let Some(prompt_geom) = prompt_geom {
+            self.set_geom_override(prompt_geom);
+            self.permission_prompt_geom_override = true;
+        }
         self.requesting_permissions = permissions;
         self.handle_plugin_bytes_for_all_clients(Default::default()); // to trigger the render of
                                                                       // the permission message
