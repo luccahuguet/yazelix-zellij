@@ -4585,57 +4585,41 @@ impl Screen {
         }
         self.host_terminal_theme_mode = Some(mode);
 
-        // resolve target styling
-        let resolved = match mode {
-            HostTerminalThemeMode::Dark => self.host_theme_dark_styling,
-            HostTerminalThemeMode::Light => self.host_theme_light_styling,
-        };
-
-        // theme propagation when both keys configured and the resolved
-        // styling exists. (If only one of theme_dark/theme_light is set,
-        // skip auto-switch; the static `theme` stays authoritative.)
-        let auto_switch_enabled =
-            self.host_theme_dark_styling.is_some() && self.host_theme_light_styling.is_some();
-        if auto_switch_enabled {
-            if let Some(theme) = resolved {
-                self.default_mode_info.update_theme(theme);
+        // Theme propagation is enabled only when both keys are configured.
+        // If either is absent, the static `theme` stays authoritative.
+        if let Some(theme) = self.theme_for_mode(mode) {
+            self.default_mode_info.update_theme(theme);
+            for tab in self.tabs.values_mut() {
+                tab.update_theme(theme);
+            }
+            // Iterate every connected client (active_tab_ids is the
+            // canonical "who is connected" map). Iterating
+            // self.mode_info.keys() would skip any client that has
+            // never manually changed mode
+            let client_ids: Vec<ClientId> = self.active_tab_ids.keys().copied().collect();
+            let default_for_new = self.default_mode_info.clone();
+            for client_id in client_ids {
+                let mode_info = self
+                    .mode_info
+                    .entry(client_id)
+                    .or_insert_with(|| default_for_new.clone());
+                mode_info.update_theme(theme);
+                let mode_info_clone = mode_info.clone();
+                // Push the freshly-themed mode_info into every tab's
+                // per-client mode_info map. `update_input_modes` below
+                // reads from THAT map (not Screen's) when fanning out
+                // ModeUpdate to plugins, so without this step plugins
+                // receive ModeUpdate carrying the *old* style and the
+                // status-bar / tab-bar do not repaint. Also mark the
+                // active pane for rerender so terminal panes refresh
+                // their borders/title using the new palette.
                 for tab in self.tabs.values_mut() {
-                    tab.update_theme(theme);
+                    tab.change_mode_info(mode_info_clone.clone(), client_id);
+                    tab.mark_active_pane_for_rerender(client_id);
                 }
-                // Iterate every connected client (active_tab_ids is the
-                // canonical "who is connected" map). Iterating
-                // self.mode_info.keys() would skip any client that has
-                // never manually changed mode
-                let client_ids: Vec<ClientId> = self.active_tab_ids.keys().copied().collect();
-                let default_for_new = self.default_mode_info.clone();
-                for client_id in client_ids {
-                    let mode_info = self
-                        .mode_info
-                        .entry(client_id)
-                        .or_insert_with(|| default_for_new.clone());
-                    mode_info.update_theme(theme);
-                    let mode_info_clone = mode_info.clone();
-                    // Push the freshly-themed mode_info into every tab's
-                    // per-client mode_info map. `update_input_modes` below
-                    // reads from THAT map (not Screen's) when fanning out
-                    // ModeUpdate to plugins, so without this step plugins
-                    // receive ModeUpdate carrying the *old* style and the
-                    // status-bar / tab-bar do not repaint. Also mark the
-                    // active pane for rerender so terminal panes refresh
-                    // their borders/title using the new palette.
-                    for tab in self.tabs.values_mut() {
-                        tab.change_mode_info(mode_info_clone.clone(), client_id);
-                        tab.mark_active_pane_for_rerender(client_id);
-                    }
-                }
-                for tab in self.tabs.values_mut() {
-                    tab.update_input_modes().with_context(err_context)?;
-                }
-            } else {
-                log::warn!(
-                    "host theme auto-switch enabled but resolved styling missing for {:?}",
-                    mode
-                );
+            }
+            for tab in self.tabs.values_mut() {
+                tab.update_input_modes().with_context(err_context)?;
             }
         }
 
@@ -4673,6 +4657,29 @@ impl Screen {
         self.render(None)?;
         Ok(())
     }
+    fn theme_for_mode(&self, mode: HostTerminalThemeMode) -> Option<Styling> {
+        match (
+            self.host_theme_dark_styling,
+            self.host_theme_light_styling,
+            mode,
+        ) {
+            (Some(dark), Some(_), HostTerminalThemeMode::Dark) => Some(dark),
+            (Some(_), Some(light), HostTerminalThemeMode::Light) => Some(light),
+            _ => None,
+        }
+    }
+    fn replace_host_theme_styling(
+        &mut self,
+        dark: Option<Styling>,
+        light: Option<Styling>,
+        fallback: Styling,
+    ) -> Styling {
+        self.host_theme_dark_styling = dark;
+        self.host_theme_light_styling = light;
+        self.host_terminal_theme_mode
+            .and_then(|mode| self.theme_for_mode(mode))
+            .unwrap_or(fallback)
+    }
     /// Apply a manual host-terminal theme mode change requested via the CLI or a
     /// keybinding. Surfaces a clear error to the CLI if the auto-switch gate
     /// (both `theme_dark` and `theme_light` configured) is not satisfied;
@@ -4683,9 +4690,7 @@ impl Screen {
         mode: HostTerminalThemeMode,
         completion_tx: &mut Option<NotificationEnd>,
     ) -> Result<()> {
-        let auto_switch_enabled =
-            self.host_theme_dark_styling.is_some() && self.host_theme_light_styling.is_some();
-        if !auto_switch_enabled {
+        if self.theme_for_mode(mode).is_none() {
             if let Some(c) = completion_tx.as_mut() {
                 c.set_exit_status(1);
                 c.set_error_message(
@@ -5566,6 +5571,7 @@ pub(crate) fn screen_thread_main(
     config: Config,
     debug: bool,
     default_layout: Box<Layout>,
+    initial_theme_mode: Option<HostTerminalThemeMode>,
 ) -> Result<()> {
     // Resolve `theme_dark` / `theme_light` to concrete `Styling` from the
     // bundled themes BEFORE `config.options` is moved out below. These
@@ -5695,6 +5701,7 @@ pub(crate) fn screen_thread_main(
     );
     screen.host_theme_dark_styling = host_theme_dark_styling;
     screen.host_theme_light_styling = host_theme_light_styling;
+    screen.host_terminal_theme_mode = initial_theme_mode;
 
     let mut pending_tab_ids: HashSet<usize> = HashSet::new();
     let mut pending_tab_switches: HashSet<(usize, ClientId)> = HashSet::new(); // usize is the
@@ -8736,8 +8743,8 @@ pub(crate) fn screen_thread_main(
                 focus_follows_mouse,
                 mouse_click_through,
             } => {
-                screen.host_theme_dark_styling = host_theme_dark;
-                screen.host_theme_light_styling = host_theme_light;
+                let theme =
+                    screen.replace_host_theme_styling(host_theme_dark, host_theme_light, theme);
                 screen
                     .reconfigure(
                         keybinds,

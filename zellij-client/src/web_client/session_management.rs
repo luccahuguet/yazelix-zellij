@@ -52,7 +52,7 @@ pub fn spawn_new_session(
     let debug = false;
     envs::set_session_name(session_name.to_owned());
     os_input.update_session_name(session_name.to_owned());
-    spawn_server(&*zellij_ipc_pipe, debug).unwrap();
+    spawn_server(&*zellij_ipc_pipe, debug, None).unwrap();
 }
 
 pub fn create_first_message(

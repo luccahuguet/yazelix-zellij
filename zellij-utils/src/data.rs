@@ -1030,7 +1030,7 @@ pub enum Event {
     HostTerminalThemeChanged(HostTerminalThemeMode),
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, ArgEnum)]
 pub enum HostTerminalThemeMode {
     Dark,
     Light,

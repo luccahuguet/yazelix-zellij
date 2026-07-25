@@ -8,7 +8,7 @@ use insta::assert_snapshot;
 use std::net::{IpAddr, Ipv4Addr};
 use std::path::PathBuf;
 use zellij_utils::cli::CliAction;
-use zellij_utils::data::{Event, EventType, Resize, Style, WebSharing};
+use zellij_utils::data::{Event, EventType, Resize, Style, Styling, WebSharing};
 use zellij_utils::errors::{prelude::*, ErrorContext};
 use zellij_utils::input::actions::Action;
 use zellij_utils::input::command::{RunCommand, TerminalAction};
@@ -378,6 +378,7 @@ impl MockScreen {
                     config,
                     debug,
                     Box::new(Layout::default()),
+                    None,
                 )
                 .expect("TEST")
             })
@@ -464,6 +465,7 @@ impl MockScreen {
                     config,
                     debug,
                     Box::new(Layout::default()),
+                    None,
                 )
                 .expect("TEST")
             })
@@ -9111,6 +9113,27 @@ fn host_theme_emits_again_on_mode_flip() {
         )),
         "mode flip must re-emit the plugin event, got: {:?}",
         events
+    );
+}
+
+#[test]
+fn config_reload_preserves_the_selected_theme_mode() {
+    use zellij_utils::data::{HostTerminalThemeMode, DEFAULT_STYLES};
+
+    let size = Size { cols: 80, rows: 20 };
+    let (mut screen, _) = create_new_screen_with_theme_capture(size);
+    let fallback = Styling::default();
+    let dark = DEFAULT_STYLES;
+    let mut light = DEFAULT_STYLES;
+    light.text_unselected = Default::default();
+    screen.host_terminal_theme_mode = Some(HostTerminalThemeMode::Light);
+
+    let selected = screen.replace_host_theme_styling(Some(dark), Some(light), fallback);
+
+    assert_eq!(selected, light);
+    assert_eq!(
+        screen.theme_for_mode(HostTerminalThemeMode::Light),
+        Some(light)
     );
 }
 

@@ -1,4 +1,4 @@
-use crate::data::{Direction, InputMode, Resize, UnblockCondition};
+use crate::data::{Direction, HostTerminalThemeMode, InputMode, Resize, UnblockCondition};
 use crate::setup::Setup;
 use crate::{
     consts::{ZELLIJ_CONFIG_DIR_ENV, ZELLIJ_CONFIG_FILE_ENV},
@@ -44,6 +44,10 @@ pub struct CliArgs {
     /// Change where zellij looks for plugins
     #[clap(long, value_parser, overrides_with = "data_dir")]
     pub data_dir: Option<PathBuf>,
+
+    /// Set the initial dark/light theme mode for a new session
+    #[clap(long, arg_enum)]
+    pub theme_mode: Option<HostTerminalThemeMode>,
 
     /// Run server listening at the specified socket path
     #[clap(long, value_parser, hide = true, overrides_with = "server")]
@@ -1738,5 +1742,11 @@ mod tests {
     fn subscribe_requires_pane_id() {
         let result = CliArgs::try_parse_from(["zellij", "subscribe"]);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn parses_initial_theme_mode() {
+        let cli = CliArgs::try_parse_from(["zellij", "--theme-mode", "light"]).unwrap();
+        assert_eq!(cli.theme_mode, Some(HostTerminalThemeMode::Light));
     }
 }

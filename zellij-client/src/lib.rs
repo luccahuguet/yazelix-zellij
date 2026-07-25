@@ -152,7 +152,10 @@ use zellij_utils::cli::CliArgs;
 use zellij_utils::{
     channels::{self, ChannelWithContext, SenderWithContext},
     consts::{set_permissions, ZELLIJ_SOCK_DIR},
-    data::{ClientId, ConnectToSession, KeyWithModifier, LayoutInfo, LayoutMetadata},
+    data::{
+        ClientId, ConnectToSession, HostTerminalThemeMode, KeyWithModifier, LayoutInfo,
+        LayoutMetadata,
+    },
     envs,
     errors::{ClientContext, ContextType, ErrorInstruction},
     input::{cli_assets::CliAssets, config::Config, options::Options},
@@ -345,17 +348,31 @@ fn check_ipc_pipe_length(ipc_pipe: &Path) {
     }
 }
 
+fn apply_initial_theme_mode(cmd: &mut Command, initial_theme_mode: Option<HostTerminalThemeMode>) {
+    if let Some(initial_theme_mode) = initial_theme_mode {
+        cmd.arg("--theme-mode").arg(match initial_theme_mode {
+            HostTerminalThemeMode::Dark => "dark",
+            HostTerminalThemeMode::Light => "light",
+        });
+    }
+}
+
 /// Spawn the Zellij server process.
 ///
 /// On Unix the server daemonizes (double-fork) inside start_server(), so
 /// the intermediate child exits immediately and `cmd.status()` returns.
 #[cfg(not(windows))]
-pub fn spawn_server(socket_path: &Path, debug: bool) -> io::Result<()> {
+pub fn spawn_server(
+    socket_path: &Path,
+    debug: bool,
+    initial_theme_mode: Option<HostTerminalThemeMode>,
+) -> io::Result<()> {
     let mut cmd = Command::new(current_exe()?);
     cmd.arg("--server").arg(socket_path);
     if debug {
         cmd.arg("--debug");
     }
+    apply_initial_theme_mode(&mut cmd, initial_theme_mode);
     let status = cmd.status()?;
     if status.success() {
         Ok(())
@@ -377,13 +394,18 @@ pub fn spawn_server(socket_path: &Path, debug: bool) -> io::Result<()> {
 /// DETACHED_PROCESS leaves stdin/stdout/stderr as NULL, which breaks PTY
 /// creation, WASM plugin loading, and logging.
 #[cfg(windows)]
-pub fn spawn_server(socket_path: &Path, debug: bool) -> io::Result<()> {
+pub fn spawn_server(
+    socket_path: &Path,
+    debug: bool,
+    initial_theme_mode: Option<HostTerminalThemeMode>,
+) -> io::Result<()> {
     use std::os::windows::process::CommandExt;
     let mut cmd = Command::new(current_exe()?);
     cmd.arg("--server").arg(socket_path);
     if debug {
         cmd.arg("--debug");
     }
+    apply_initial_theme_mode(&mut cmd, initial_theme_mode);
     const CREATE_NO_WINDOW: u32 = 0x08000000;
     const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
     cmd.creation_flags(CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP);
@@ -742,6 +764,8 @@ pub fn start_client(
     let mut reconnect_to_session = None;
     os_input.unset_raw_mode().unwrap();
 
+    let has_initial_theme_mode = cli_args.theme_mode.is_some()
+        && matches!(&info, ClientInfo::New(..) | ClientInfo::Resurrect(..));
     if !is_a_reconnect {
         // we don't do this for a reconnect because our controlling terminal already has the
         // attributes we want from it, and some terminals don't treat these atomically (looking at
@@ -756,14 +780,16 @@ pub fn start_client(
                 .write_all(ENTER_KITTY_KEYBOARD_MODE.as_bytes())
                 .unwrap();
         }
-        // Subscribe to host CSI 2031 theme notifications and query the
-        // current mode. Sent right after CLEAR_CLIENT_TERMINAL_ATTRIBUTES
-        // so there's no window in which the host is unsubscribed.
-        // Hosts that don't support 2031 ignore both sequences.
-        stdout
-            .write_all(ENABLE_HOST_THEME_NOTIFY.as_bytes())
-            .unwrap();
-        stdout.write_all(QUERY_HOST_THEME.as_bytes()).unwrap();
+        if !has_initial_theme_mode {
+            // Subscribe to host CSI 2031 theme notifications and query the
+            // current mode. Sent right after CLEAR_CLIENT_TERMINAL_ATTRIBUTES
+            // so there's no window in which the host is unsubscribed.
+            // Hosts that don't support 2031 ignore both sequences.
+            stdout
+                .write_all(ENABLE_HOST_THEME_NOTIFY.as_bytes())
+                .unwrap();
+            stdout.write_all(QUERY_HOST_THEME.as_bytes()).unwrap();
+        }
     }
     envs::set_zellij("0".to_string());
     config.env.set_vars();
@@ -875,7 +901,7 @@ pub fn start_client(
             os_input.update_session_name(name);
             let ipc_pipe = create_ipc_pipe();
 
-            spawn_server(&*ipc_pipe, cli_args.debug).unwrap();
+            spawn_server(&*ipc_pipe, cli_args.debug, cli_args.theme_mode).unwrap();
             if should_start_web_server {
                 if let Err(e) = spawn_web_server(&cli_args) {
                     log::error!("Failed to start web server: {}", e);
@@ -929,7 +955,7 @@ pub fn start_client(
             os_input.update_session_name(name);
             let ipc_pipe = create_ipc_pipe();
 
-            spawn_server(&*ipc_pipe, cli_args.debug).unwrap();
+            spawn_server(&*ipc_pipe, cli_args.debug, cli_args.theme_mode).unwrap();
             if should_start_web_server {
                 if let Err(e) = spawn_web_server(&cli_args) {
                     log::error!("Failed to start web server: {}", e);
@@ -1327,7 +1353,7 @@ pub fn start_server_detached(
             os_input.update_session_name(name);
             let ipc_pipe = create_ipc_pipe();
 
-            spawn_server(&*ipc_pipe, cli_args.debug).unwrap();
+            spawn_server(&*ipc_pipe, cli_args.debug, cli_args.theme_mode).unwrap();
             if should_start_web_server {
                 if let Err(e) = spawn_web_server(&cli_args) {
                     log::error!("Failed to start web server: {}", e);
@@ -1382,7 +1408,7 @@ pub fn start_server_detached(
             os_input.update_session_name(name);
             let ipc_pipe = create_ipc_pipe();
 
-            spawn_server(&*ipc_pipe, cli_args.debug).unwrap();
+            spawn_server(&*ipc_pipe, cli_args.debug, cli_args.theme_mode).unwrap();
             if should_start_web_server {
                 if let Err(e) = spawn_web_server(&cli_args) {
                     log::error!("Failed to start web server: {}", e);
