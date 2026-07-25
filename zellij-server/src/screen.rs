@@ -1452,6 +1452,9 @@ pub(crate) struct Screen {
     /// DSR 997). `None` until the host first reports. Used both for
     /// auto-theme switching and to dedupe duplicate notifications.
     host_terminal_theme_mode: Option<HostTerminalThemeMode>,
+    /// Whether the session was launched with an explicit theme mode. Such a
+    /// session ignores ambient host reports while retaining manual actions.
+    explicit_theme_mode: bool,
     /// Resolved styling to apply when `host_terminal_theme_mode == Dark`.
     /// `None` disables auto-switch. Refreshed on each reconfigure.
     host_theme_dark_styling: Option<Styling>,
@@ -1609,6 +1612,7 @@ impl Screen {
             forward_queue: VecDeque::new(),
             forward_in_flight_token: None,
             host_terminal_theme_mode: None,
+            explicit_theme_mode: false,
             host_theme_dark_styling: None,
             host_theme_light_styling: None,
         }
@@ -4657,6 +4661,13 @@ impl Screen {
         self.render(None)?;
         Ok(())
     }
+    fn apply_host_theme_report(&mut self, mode: HostTerminalThemeMode) -> Result<()> {
+        if self.explicit_theme_mode {
+            Ok(())
+        } else {
+            self.update_host_terminal_theme_mode(mode)
+        }
+    }
     fn theme_for_mode(&self, mode: HostTerminalThemeMode) -> Option<Styling> {
         match (
             self.host_theme_dark_styling,
@@ -5702,6 +5713,7 @@ pub(crate) fn screen_thread_main(
     screen.host_theme_dark_styling = host_theme_dark_styling;
     screen.host_theme_light_styling = host_theme_light_styling;
     screen.host_terminal_theme_mode = initial_theme_mode;
+    screen.explicit_theme_mode = initial_theme_mode.is_some();
 
     let mut pending_tab_ids: HashSet<usize> = HashSet::new();
     let mut pending_tab_switches: HashSet<(usize, ClientId)> = HashSet::new(); // usize is the
@@ -7301,7 +7313,7 @@ pub(crate) fn screen_thread_main(
                 screen.render(None)?;
             },
             ScreenInstruction::HostTerminalThemeChanged(mode) => {
-                screen.update_host_terminal_theme_mode(mode)?;
+                screen.apply_host_theme_report(mode)?;
             },
             ScreenInstruction::SetDarkTheme(mut completion_tx) => {
                 screen.apply_manual_host_terminal_theme_mode(

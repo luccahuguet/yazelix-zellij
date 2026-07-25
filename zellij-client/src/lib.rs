@@ -764,8 +764,7 @@ pub fn start_client(
     let mut reconnect_to_session = None;
     os_input.unset_raw_mode().unwrap();
 
-    let has_initial_theme_mode = cli_args.theme_mode.is_some()
-        && matches!(&info, ClientInfo::New(..) | ClientInfo::Resurrect(..));
+    let has_explicit_theme_mode = cli_args.theme_mode.is_some();
     if !is_a_reconnect {
         // we don't do this for a reconnect because our controlling terminal already has the
         // attributes we want from it, and some terminals don't treat these atomically (looking at
@@ -780,7 +779,7 @@ pub fn start_client(
                 .write_all(ENTER_KITTY_KEYBOARD_MODE.as_bytes())
                 .unwrap();
         }
-        if !has_initial_theme_mode {
+        if !has_explicit_theme_mode {
             // Subscribe to host CSI 2031 theme notifications and query the
             // current mode. Sent right after CLEAR_CLIENT_TERMINAL_ATTRIBUTES
             // so there's no window in which the host is unsubscribed.
