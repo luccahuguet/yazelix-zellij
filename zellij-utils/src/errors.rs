@@ -317,6 +317,7 @@ pub enum ScreenContext {
     SetDarkTheme,
     SetLightTheme,
     ToggleTheme,
+    ReplayHostTerminalThemeToPlugin,
     ChangeMode,
     ChangeModeForAllClients,
     LeftClick,

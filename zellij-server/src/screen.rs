@@ -547,6 +547,9 @@ pub enum ScreenInstruction {
     SetDarkTheme(Option<NotificationEnd>),
     SetLightTheme(Option<NotificationEnd>),
     ToggleTheme(Option<NotificationEnd>),
+    /// Replay the current session theme mode to a plugin that subscribed after
+    /// the most recent host-theme transition.
+    ReplayHostTerminalThemeToPlugin(PluginId, ClientId),
     ChangeMode(
         InputMode,
         Option<InputMode>,
@@ -1001,6 +1004,9 @@ impl From<&ScreenInstruction> for ScreenContext {
             ScreenInstruction::SetDarkTheme(..) => ScreenContext::SetDarkTheme,
             ScreenInstruction::SetLightTheme(..) => ScreenContext::SetLightTheme,
             ScreenInstruction::ToggleTheme(..) => ScreenContext::ToggleTheme,
+            ScreenInstruction::ReplayHostTerminalThemeToPlugin(..) => {
+                ScreenContext::ReplayHostTerminalThemeToPlugin
+            },
             ScreenInstruction::ChangeMode(..) => ScreenContext::ChangeMode,
             ScreenInstruction::ChangeModeForAllClients(..) => {
                 ScreenContext::ChangeModeForAllClients
@@ -4661,6 +4667,24 @@ impl Screen {
         self.render(None)?;
         Ok(())
     }
+
+    fn replay_host_terminal_theme_mode_to_plugin(
+        &self,
+        plugin_id: PluginId,
+        client_id: ClientId,
+    ) -> Result<()> {
+        if let Some(mode) = self.host_terminal_theme_mode {
+            self.bus
+                .senders
+                .send_to_plugin(PluginInstruction::Update(vec![(
+                    Some(plugin_id),
+                    Some(client_id),
+                    Event::HostTerminalThemeChanged(mode),
+                )]))
+                .context("Failed to replay host terminal theme mode to plugin")?;
+        }
+        Ok(())
+    }
     fn apply_host_theme_report(&mut self, mode: HostTerminalThemeMode) -> Result<()> {
         if self.explicit_theme_mode {
             Ok(())
@@ -7335,6 +7359,9 @@ pub(crate) fn screen_thread_main(
                     None => HostTerminalThemeMode::Light,
                 };
                 screen.apply_manual_host_terminal_theme_mode(next, &mut completion_tx)?;
+            },
+            ScreenInstruction::ReplayHostTerminalThemeToPlugin(plugin_id, client_id) => {
+                screen.replay_host_terminal_theme_mode_to_plugin(plugin_id, client_id)?;
             },
             ScreenInstruction::ChangeMode(
                 input_mode,
