@@ -10,7 +10,7 @@ previews through Kitty graphics passthrough and runtime appearance switching.
 | Why this fork exists | Yazelix needs Zellij to preserve Kitty graphics APC frames and propagate its runtime appearance mode |
 | Current Yazelix delta | Preserves Kitty graphics APC frames when `YAZELIX_ZELLIJ_KITTY_PASSTHROUGH=1` is present; supports managed dark/light theme pairs and replays the current mode to newly loaded plugins |
 | Non-goals | This fork does not own general Zellij UX, Yazelix layout policy, or long-term graphics architecture once upstream supports the needed path |
-| Standalone support | Not a general standalone Zellij distribution; use it only for the Yazelix KGP preview path or focused validation of that delta |
+| Standalone support | Not a general standalone Zellij distribution; use it only through Yazelix or for focused validation of its managed deltas |
 | Upstream sync cadence | Monthly and whenever upstream Zellij changes Kitty graphics behavior |
 | Removal gate | Drop and archive this fork once upstream Zellij supports all the implemented changes in this fork|
 
