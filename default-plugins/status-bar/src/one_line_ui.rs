@@ -640,19 +640,11 @@ fn modifier_groups(key_shortcuts: &[KeyShortcut]) -> Vec<(Vec<KeyModifier>, Vec<
             groups.push((modifiers, vec![shortcut]));
         }
     }
-    groups.sort_by_key(|(modifiers, _)| {
-        if modifiers.len() == 2
-            && modifiers.contains(&KeyModifier::Ctrl)
-            && modifiers.contains(&KeyModifier::Alt)
-        {
-            0
-        } else if modifiers == &[KeyModifier::Ctrl] {
-            1
-        } else if modifiers == &[KeyModifier::Alt] {
-            2
-        } else {
-            3
-        }
+    groups.sort_by_key(|(modifiers, _)| match modifiers.as_slice() {
+        [KeyModifier::Ctrl, KeyModifier::Alt] => 0,
+        [KeyModifier::Ctrl] => 1,
+        [KeyModifier::Alt] => 2,
+        _ => 3,
     });
     groups
 }
