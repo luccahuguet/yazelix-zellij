@@ -1,7 +1,8 @@
 use super::kitty_graphics::{
-    format_kitty_error, format_kitty_reply, KittyAction, KittyCommand, KittyCommandParser,
-    KittyError, KittyErrorCode, KittyGrid, KittyHostSupport, KittyImageChunk, KittyImageStore,
-    KittyPlacement, KittyReplyData, KittyRowsBelowTheViewport, KittyVerticalAnchor,
+    format_kitty_error, format_kitty_reply, InternalImageId, KittyAction, KittyCommand,
+    KittyCommandParser, KittyError, KittyErrorCode, KittyGrid, KittyHostSupport, KittyImageChunk,
+    KittyImageStore, KittyPlacement, KittyReplyData, KittyRowsBelowTheViewport,
+    KittyVerticalAnchor,
 };
 use super::sixel::{PixelRect, SixelGrid, SixelImageStore};
 use base64::alphabet::STANDARD as BASE64_STANDARD_ALPHABET;
@@ -3385,6 +3386,26 @@ impl Grid {
                 }
             },
             KittyAction::TransmitAndDisplay | KittyAction::Display => {
+                if command.action == KittyAction::TransmitAndDisplay && command.unicode_placeholder
+                {
+                    let image = command.image.clone().ok_or_else(|| KittyError {
+                        code: KittyErrorCode::Einval,
+                        message: "missing image data".to_owned(),
+                        image_id: command.image_id,
+                        image_number: command.image_number,
+                        placement_id: command.placement_id,
+                        quiet: command.quiet,
+                    })?;
+                    let assigned_id = self.kitty_grid.transmit(&command, image)?;
+                    self.kitty_grid
+                        .register_virtual_placement(assigned_id, &command);
+                    return Ok(KittyReplyData {
+                        image_id: Some(assigned_id),
+                        image_number: command.image_number,
+                        placement_id: command.placement_id,
+                        quiet: command.quiet,
+                    });
+                }
                 let resolved = if command.action == KittyAction::TransmitAndDisplay {
                     match command.image.clone() {
                         Some(image) => self.kitty_grid.transmit(&command, image).map(|id| {
@@ -3411,56 +3432,77 @@ impl Grid {
                     Ok(resolved) => resolved,
                     Err(e) => return Err(e),
                 };
-                let cursor_px = self.current_cursor_pixel_coordinates();
-                let cell = { *self.character_cell_size.borrow() };
-                let (cursor_px, cell) = match (cursor_px, cell) {
-                    (Some(cursor_px), Some(cell)) => (cursor_px, cell),
-                    _ => {
-                        return Err(KittyError {
-                            code: KittyErrorCode::Enotsupported,
-                            message: "cell size unknown".to_owned(),
-                            image_id: command.image_id,
-                            image_number: command.image_number,
-                            placement_id: command.placement_id,
-                            quiet: command.quiet,
-                        });
-                    },
-                };
-                let placement_top_px = (cursor_px.1
-                    + std::cmp::min(command.cell_offset_y as usize, cell.height - 1))
-                    as isize;
-                let starts = self.kitty_canonical_line_starts();
-                let vertical_anchor = Self::kitty_anchor_from_pixel_y(
-                    placement_top_px,
-                    cell.height as isize,
-                    &starts,
-                );
-                match self.kitty_grid.place(
-                    pane_image_id,
-                    internal,
-                    &command,
-                    cursor_px,
-                    cell,
-                    vertical_anchor,
-                ) {
-                    Ok((cols, rows)) => {
-                        if !command.suppress_cursor_movement {
-                            self.advance_cursor_after_kitty_placement(cols as usize, rows as usize);
-                        }
-                        self.kitty_reanchor_all_from_pixels();
-                        self.render_full_viewport();
-                        self.mark_for_rerender();
-                        Ok(KittyReplyData {
-                            image_id: Some(pane_image_id),
-                            image_number: command.image_number,
-                            placement_id: command.placement_id,
-                            quiet: command.quiet,
-                        })
-                    },
-                    Err(e) => Err(e),
-                }
+                self.place_kitty_image(pane_image_id, internal, &command)?;
+                Ok(KittyReplyData {
+                    image_id: Some(pane_image_id),
+                    image_number: command.image_number,
+                    placement_id: command.placement_id,
+                    quiet: command.quiet,
+                })
             },
         }
+    }
+    fn place_kitty_image(
+        &mut self,
+        pane_image_id: u32,
+        internal: InternalImageId,
+        command: &KittyCommand,
+    ) -> Result<(), KittyError> {
+        let cursor_px = self.current_cursor_pixel_coordinates();
+        let cell = { *self.character_cell_size.borrow() };
+        let (cursor_px, cell) = match (cursor_px, cell) {
+            (Some(cursor_px), Some(cell)) => (cursor_px, cell),
+            _ => {
+                return Err(KittyError {
+                    code: KittyErrorCode::Enotsupported,
+                    message: "cell size unknown".to_owned(),
+                    image_id: command.image_id,
+                    image_number: command.image_number,
+                    placement_id: command.placement_id,
+                    quiet: command.quiet,
+                });
+            },
+        };
+        let placement_top_px =
+            (cursor_px.1 + std::cmp::min(command.cell_offset_y as usize, cell.height - 1)) as isize;
+        let starts = self.kitty_canonical_line_starts();
+        let vertical_anchor =
+            Self::kitty_anchor_from_pixel_y(placement_top_px, cell.height as isize, &starts);
+        let (cols, rows) = self.kitty_grid.place(
+            pane_image_id,
+            internal,
+            command,
+            cursor_px,
+            cell,
+            vertical_anchor,
+        )?;
+        if !command.suppress_cursor_movement {
+            self.advance_cursor_after_kitty_placement(cols as usize, rows as usize);
+        }
+        self.kitty_reanchor_all_from_pixels();
+        self.render_full_viewport();
+        self.mark_for_rerender();
+        Ok(())
+    }
+    fn place_unicode_placeholder(&mut self, terminal_character: &TerminalCharacter) -> bool {
+        if terminal_character.character != '\u{10eeee}' {
+            return false;
+        }
+        let image_id = match terminal_character.styles.foreground {
+            Some(AnsiCode::RgbCode((r, g, b))) => ((r as u32) << 16) | ((g as u32) << 8) | b as u32,
+            _ => return false,
+        };
+        let mut command = match self.kitty_grid.virtual_placement(image_id) {
+            Some(command) => command,
+            None => return false,
+        };
+        if !self.kitty_grid.has_placement_for_image(image_id) {
+            command.suppress_cursor_movement = true;
+            if let Ok((_, internal)) = self.kitty_grid.resolve_display_target(&command) {
+                let _ = self.place_kitty_image(image_id, internal, &command);
+            }
+        }
+        true
     }
     pub fn kitty_commands_handled(&self) -> u64 {
         self.kitty_grid.commands_handled()
@@ -3967,6 +4009,13 @@ impl Perform for Grid {
 
         let terminal_character =
             TerminalCharacter::new_styled(c, self.cursor.pending_styles.clone());
+        if self.place_unicode_placeholder(&terminal_character) {
+            self.add_character(TerminalCharacter::new_styled(
+                ' ',
+                terminal_character.styles,
+            ));
+            return;
+        }
         self.set_preceding_character(terminal_character.clone());
         self.add_character(terminal_character);
     }

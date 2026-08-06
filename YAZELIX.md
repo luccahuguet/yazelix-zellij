@@ -8,10 +8,14 @@ This branch is the clean Nova v1 rebuild of the temporary Yazelix Zellij fork.
 | Native Kitty implementation | `0e6e4404027a187f1399a43bf91bdbd13d9636e1` |
 | Previous fork | `yazelix_kgp_preview` at `c9e4c246ea47ad06e79f87aca7073fafe89ba8f1` |
 | Previous fork role | Behavior evidence and rollback only |
-| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, and isolated permission-cache selection |
+| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, isolated permission-cache selection, and current-Yazi Unicode placeholder translation |
 
-Upstream owns the complete Kitty graphics mechanism. Yazelix will add back only
-current Nova v1 behavior that cannot be expressed through upstream Zellij.
+Upstream owns Kitty image storage, placement, rendering, and lifecycle. Its
+native implementation intentionally omits Unicode placeholders, so this branch
+accepts the current Yazi `U=1` row-major stream and translates its first
+true-color placeholder cell into one upstream-owned placement. Placeholder
+glyphs become blank backing cells. Abbreviated, sparse, overlapping, and
+placement-ID forms remain unsupported.
 
 `--theme-mode dark|light` selects `theme_dark` or `theme_light` before a new
 session's first render. An explicitly themed session ignores ambient terminal
@@ -54,6 +58,9 @@ behavior.
 
 The permission seam is removable when upstream can make background plugin
 requests visible, ordered, granted, and replayed without blocking CLI pipes.
+
+The Unicode-placeholder delta is removable when upstream Zellij supports the
+current Yazi `U=1` stream directly.
 
 The rebuild is accepted for Main only after the exact child revision is
 published, the retained diff is reviewed, package and child-plugin checks pass,

@@ -7,9 +7,11 @@ Read that file before changing this repository.
 
 - This branch rebuilds the temporary Yazelix Zellij fork from upstream commit
   `5254e4fc1dd784ef872644190dc5e2bcb0981bed` for Nova v1.
-- Upstream Zellij owns Kitty Image Protocol parsing, storage, placement,
-  rendering, replies, resizing, history, fullscreen, and nested-session
-  behavior. Do not add a Yazelix graphics passthrough or replay path.
+- Upstream Zellij owns Kitty Image Protocol storage, placement, rendering,
+  replies, resizing, history, fullscreen, and nested-session behavior. This
+  branch owns only the missing current-Yazi `U=1` placeholder translation into
+  those upstream mechanisms. Do not add a Yazelix graphics passthrough or
+  replay path.
 - Use `yazelix_kgp_preview` only as behavior evidence and a rollback ref. Do
   not merge or mechanically replay it.
 - Re-derive each Yazelix behavior from the current product contract and retain

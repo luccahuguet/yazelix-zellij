@@ -217,9 +217,9 @@ fn known_but_unsupported_keys_do_not_break_valid_command() {
 }
 
 #[test]
-fn unicode_placeholder_key_is_enotsupported() {
+fn unknown_unicode_placeholder_mode_is_enotsupported() {
     let mut parser = KittyCommandParser::new();
-    let err = parse_one(&mut parser, b"a=T,U=1,f=24,s=1,v=1;AAAA").unwrap_err();
+    let err = parse_one(&mut parser, b"a=T,U=2,f=24,s=1,v=1;AAAA").unwrap_err();
     assert_eq!(err.code, KittyErrorCode::Enotsupported);
 }
 

@@ -71,6 +71,7 @@ pub struct KittyGrid {
     pub kitty_image_store: Rc<RefCell<KittyImageStore>>,
     image_ids: HashMap<u32, InternalImageId>,
     image_numbers: HashMap<u32, Vec<u32>>,
+    virtual_placements: HashMap<u32, KittyCommand>,
     placements: Vec<KittyPlacement>,
     next_synthetic_image_id: u32,
     front_drops: u64,
@@ -120,6 +121,7 @@ impl KittyGrid {
             kitty_image_store,
             image_ids: HashMap::new(),
             image_numbers: HashMap::new(),
+            virtual_placements: HashMap::new(),
             placements: Vec::new(),
             next_synthetic_image_id: u32::MAX,
             front_drops: 0,
@@ -194,6 +196,7 @@ impl KittyGrid {
         } else {
             command.image_id.unwrap_or(0)
         };
+        self.virtual_placements.remove(&pane_image_id);
         if pane_image_id != 0 {
             if let Some(old_internal) = self.image_ids.get(&pane_image_id).copied() {
                 let mut store = self.kitty_image_store.borrow_mut();
@@ -234,6 +237,19 @@ impl KittyGrid {
         self.image_ids.insert(pane_image_id, internal);
         self.kitty_image_store.borrow_mut().touch(internal);
         Ok(pane_image_id)
+    }
+    pub fn register_virtual_placement(&mut self, pane_image_id: u32, command: &KittyCommand) {
+        let mut command = command.clone();
+        command.image = None;
+        self.virtual_placements.insert(pane_image_id, command);
+    }
+    pub fn virtual_placement(&self, pane_image_id: u32) -> Option<KittyCommand> {
+        self.virtual_placements.get(&pane_image_id).cloned()
+    }
+    pub fn has_placement_for_image(&self, pane_image_id: u32) -> bool {
+        self.placements
+            .iter()
+            .any(|placement| placement.image_id == pane_image_id)
     }
     pub fn resolve_display_target(
         &self,
@@ -599,6 +615,8 @@ impl KittyGrid {
                 ids.retain(|id| live_ids.contains(id));
             });
             self.image_numbers.retain(|_, ids| !ids.is_empty());
+            self.virtual_placements
+                .retain(|id, _| live_ids.contains(id));
         }
         Ok(())
     }

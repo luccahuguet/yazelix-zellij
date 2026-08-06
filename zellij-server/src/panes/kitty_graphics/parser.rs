@@ -100,6 +100,7 @@ pub struct KittyCommand {
     pub z_index: i32,
     pub quiet: u8,
     pub suppress_cursor_movement: bool,
+    pub unicode_placeholder: bool,
     pub delete_specifier: Option<char>,
     pub image: Option<DecodedImage>,
 }
@@ -130,6 +131,7 @@ impl Default for KittyCommand {
             z_index: 0,
             quiet: 0,
             suppress_cursor_movement: false,
+            unicode_placeholder: false,
             delete_specifier: None,
             image: None,
         }
@@ -488,10 +490,11 @@ pub fn parse_control_data(control: &[u8]) -> Result<KittyCommand, KittyError> {
             },
             b"U" => match parse_u32(value) {
                 Some(0) => {},
+                Some(1) => command.unicode_placeholder = true,
                 Some(_) => {
                     return Err(echo.error(
                         KittyErrorCode::Enotsupported,
-                        "unicode placeholders are not supported",
+                        "unsupported unicode placeholder mode",
                     ));
                 },
                 None => {
@@ -506,6 +509,12 @@ pub fn parse_control_data(control: &[u8]) -> Result<KittyCommand, KittyError> {
         return Err(echo.error(
             KittyErrorCode::Einval,
             "must not specify both image id and image number",
+        ));
+    }
+    if command.unicode_placeholder && command.action != KittyAction::TransmitAndDisplay {
+        return Err(echo.error(
+            KittyErrorCode::Enotsupported,
+            "unicode placeholders are only supported with transmit-and-display",
         ));
     }
     Ok(command)

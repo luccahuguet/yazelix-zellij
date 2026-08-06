@@ -6956,6 +6956,63 @@ fn kitty_aspect_fit_single_axis() {
 }
 
 #[test]
+fn kitty_yazi_unicode_placeholder_stream_roundtrip() {
+    let (mut grid, kitty_image_store) = new_kitty_grid(20, 40);
+    let mut vte_parser = vte::Parser::new();
+    let mut interceptor = KittyApcInterceptor::new();
+    feed_kitty_bytes(
+        &mut grid,
+        &mut vte_parser,
+        &mut interceptor,
+        &kitty_apc(
+            "q=2,a=T,C=1,U=1,f=24,s=20,v=40,i=66051",
+            &rgb_raster(20, 40),
+        ),
+    );
+    assert_eq!(grid.kitty_placement_count(), 0);
+    assert_eq!(kitty_image_store.borrow().image_count(), 1);
+
+    let placeholders = concat!(
+        "\x1b[38;2;1;2;3m",
+        "\x1b[6;11H\u{10eeee}\u{0305}\u{0305}\u{10eeee}\u{0305}\u{030d}",
+        "\x1b[7;11H\u{10eeee}\u{030d}\u{0305}\u{10eeee}\u{030d}\u{030d}",
+    );
+    feed_kitty_bytes(
+        &mut grid,
+        &mut vte_parser,
+        &mut interceptor,
+        placeholders.as_bytes(),
+    );
+
+    assert_eq!(grid.kitty_placement_count(), 1);
+    let placement = &grid.kitty_placements()[0];
+    assert_eq!(placement.image_id, 66051);
+    assert_eq!(
+        placement.display_rect,
+        PixelRect {
+            x: 100,
+            y: 100,
+            width: 20,
+            height: 40,
+        }
+    );
+    for y in 5..7 {
+        for x in 10..12 {
+            assert_eq!(grid.viewport[y].columns[x].character, ' ');
+        }
+    }
+
+    feed_kitty_bytes(
+        &mut grid,
+        &mut vte_parser,
+        &mut interceptor,
+        b"\x1b_Gq=2,a=d,d=A\x1b\\",
+    );
+    assert_eq!(grid.kitty_placement_count(), 0);
+    assert_eq!(kitty_image_store.borrow().image_count(), 0);
+}
+
+#[test]
 fn kitty_yazi_kgpold_stream_roundtrip() {
     let (mut grid, kitty_image_store) = new_kitty_grid(20, 40);
     let mut vte_parser = vte::Parser::new();
