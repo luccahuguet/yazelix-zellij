@@ -8,7 +8,7 @@ This branch is the clean Nova v1 rebuild of the temporary Yazelix Zellij fork.
 | Native Kitty implementation | `0e6e4404027a187f1399a43bf91bdbd13d9636e1` |
 | Previous fork | `yazelix_kgp_preview` at `c9e4c246ea47ad06e79f87aca7073fafe89ba8f1` |
 | Previous fork role | Behavior evidence and rollback only |
-| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, and three-island status hints |
+| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, and isolated permission-cache selection |
 
 Upstream owns the complete Kitty graphics mechanism. Yazelix will add back only
 current Nova v1 behavior that cannot be expressed through upstream Zellij.
@@ -37,8 +37,12 @@ from `target/wasm32-wasip1/release/status-bar.wasm`, and verify the two files
 are byte-identical before packaging.
 
 The old terminal-title prefix has no current Nova or Mars consumer and is not
-retained. Plugin permissions remain upstream-owned unless focused proof finds a
-v1 gap.
+retained. Fresh-session dogfood proved that background bundled plugins can
+remain pending behind inaccessible upstream permission prompts, blocking popup
+and pane-orchestrator pipes. When no explicit call-site path is provided, the
+fork therefore accepts `ZELLIJ_PLUGIN_PERMISSIONS_CACHE`; Yazelix points it at
+an isolated cache containing grants for its exact packaged plugins. Explicit
+paths and the default global cache keep upstream precedence and behavior.
 
 The appearance delta is removable when upstream provides equivalent explicit
 new-session theme selection, ambient-report authority, manual switching, reload
@@ -47,6 +51,9 @@ behavior, and current-state delivery to late plugin subscribers.
 The status-bar delta is removable when upstream groups visible mode actions by
 their actual modifiers without losing its native secondary actions or compact
 behavior.
+
+The permission seam is removable when upstream can make background plugin
+requests visible, ordered, granted, and replayed without blocking CLI pipes.
 
 The rebuild is accepted for Main only after the exact child revision is
 published, the retained diff is reviewed, package and child-plugin checks pass,
