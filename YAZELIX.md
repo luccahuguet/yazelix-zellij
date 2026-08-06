@@ -30,6 +30,12 @@ actual modifiers. Yazelix's bindings therefore render distinct `Ctrl-Alt` and
 right-aligned `Alt` actions, compact fallback, and interaction ranges. Missing
 actions are omitted instead of disrupting modifier detection.
 
+Zellij embeds the tracked `zellij-utils/assets/plugins/status-bar.wasm` in its
+binary. After changing the status-bar source, rebuild that one asset with
+`cargo build --release --target wasm32-wasip1 -p status-bar`, copy the result
+from `target/wasm32-wasip1/release/status-bar.wasm`, and verify the two files
+are byte-identical before packaging.
+
 The old terminal-title prefix has no current Nova or Mars consumer and is not
 retained. Plugin permissions remain upstream-owned unless focused proof finds a
 v1 gap.
