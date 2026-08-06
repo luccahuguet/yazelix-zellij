@@ -571,45 +571,27 @@ fn render_mode_key_indicators(
     }
 }
 
-fn full_inline_keys_modes_shortcut_list(
-    keys_without_common_modifiers: &[KeyShortcut],
+fn inline_mode_shortcut_list(
+    shortcuts: &[KeyShortcut],
     help: &ModeInfo,
+    shortened: bool,
 ) -> LinePart {
-    let mut full_shortcut_list = LinePart::default();
-    for key in keys_without_common_modifiers {
+    let mut shortcut_list = LinePart::default();
+    for key in shortcuts {
         let is_selected = key.is_selected();
-        let shortcut = add_shortcut_with_inline_key(
-            help,
-            &key.full_text(),
-            key.key
-                .as_ref()
-                .map(|k| vec![k.clone()])
-                .unwrap_or_else(|| vec![]),
-            is_selected,
-        );
-        full_shortcut_list.append(&shortcut);
+        let keys = key
+            .key
+            .as_ref()
+            .map(|key| vec![key.clone()])
+            .unwrap_or_default();
+        let shortcut = if shortened {
+            add_shortcut_with_key_only(help, keys, is_selected)
+        } else {
+            add_shortcut_with_inline_key(help, &key.full_text(), keys, is_selected)
+        };
+        shortcut_list.append(&shortcut);
     }
-    full_shortcut_list
-}
-
-fn shortened_inline_keys_modes_shortcut_list(
-    keys_without_common_modifiers: &[KeyShortcut],
-    help: &ModeInfo,
-) -> LinePart {
-    let mut shortened_shortcut_list = LinePart::default();
-    for key in keys_without_common_modifiers {
-        let is_selected = key.is_selected();
-        let shortcut = add_shortcut_with_key_only(
-            help,
-            key.key
-                .as_ref()
-                .map(|k| vec![k.clone()])
-                .unwrap_or_else(|| vec![]),
-            is_selected,
-        );
-        shortened_shortcut_list.append(&shortcut);
-    }
-    shortened_shortcut_list
+    shortcut_list
 }
 
 fn grouped_mode_shortcut_list(
@@ -631,11 +613,7 @@ fn grouped_mode_shortcut_list(
         if !modifiers.is_empty() {
             render_common_modifiers(colored_elements, help, modifiers, &mut line_part, separator);
         }
-        let shortcuts = if shortened {
-            shortened_inline_keys_modes_shortcut_list(shortcuts, help)
-        } else {
-            full_inline_keys_modes_shortcut_list(shortcuts, help)
-        };
+        let shortcuts = inline_mode_shortcut_list(shortcuts, help, shortened);
         line_part.append(&shortcuts);
     }
     line_part
@@ -644,13 +622,13 @@ fn grouped_mode_shortcut_list(
 fn modifier_groups(key_shortcuts: &[KeyShortcut]) -> Vec<(Vec<KeyModifier>, Vec<KeyShortcut>)> {
     let mut groups: Vec<(Vec<KeyModifier>, Vec<KeyShortcut>)> = vec![];
     for key_shortcut in key_shortcuts {
-        let Some(key) = key_shortcut.get_key() else {
+        let Some(key) = key_shortcut.key.as_ref() else {
             continue;
         };
         let modifiers = key.key_modifiers.iter().copied().collect::<Vec<_>>();
         let shortcut = KeyShortcut::new(
-            key_shortcut.get_mode(),
-            key_shortcut.get_action(),
+            key_shortcut.mode,
+            key_shortcut.action,
             Some(key.strip_common_modifiers(&modifiers)),
         );
         if let Some((_, shortcuts)) = groups

@@ -85,15 +85,6 @@ impl KeyShortcut {
         };
         format!("{}", key)
     }
-    pub fn get_key(&self) -> Option<KeyWithModifier> {
-        self.key.clone()
-    }
-    pub fn get_mode(&self) -> KeyMode {
-        self.mode
-    }
-    pub fn get_action(&self) -> KeyAction {
-        self.action
-    }
     pub fn is_selected(&self) -> bool {
         match self.mode {
             KeyMode::Selected => true,
