@@ -455,15 +455,16 @@ mod initial_theme_tests {
 
     #[test]
     fn forwards_the_initial_theme_mode_to_the_server() {
-        let mut command = Command::new("zellij");
-        apply_initial_theme_mode(&mut command, Some(HostTerminalThemeMode::Dark));
-        apply_initial_theme_mode(&mut command, Some(HostTerminalThemeMode::Light));
+        use HostTerminalThemeMode::{Dark, Light};
 
-        let args: Vec<_> = command
-            .get_args()
-            .map(|arg| arg.to_str().unwrap())
-            .collect();
-        assert_eq!(args, ["--theme-mode", "dark", "--theme-mode", "light"]);
+        let command_args = |mode| {
+            let mut command = Command::new("zellij");
+            apply_initial_theme_mode(&mut command, Some(mode));
+            let args: Vec<_> = command.get_args().map(ToOwned::to_owned).collect();
+            args
+        };
+        assert_eq!(command_args(Dark), ["--theme-mode", "dark"]);
+        assert_eq!(command_args(Light), ["--theme-mode", "light"]);
     }
 }
 
