@@ -1207,84 +1207,6 @@ fn ribbon_range(start: usize, end: usize) -> Option<(usize, usize)> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn ctrl_alt(key: char) -> KeyWithModifier {
-        KeyWithModifier::new(BareKey::Char(key))
-            .with_ctrl_modifier()
-            .with_alt_modifier()
-    }
-
-    fn ctrl(key: char) -> KeyWithModifier {
-        KeyWithModifier::new(BareKey::Char(key)).with_ctrl_modifier()
-    }
-
-    fn alt(key: char) -> KeyWithModifier {
-        KeyWithModifier::new(BareKey::Char(key)).with_alt_modifier()
-    }
-
-    fn decoded_ui_text(line_part: LinePart) -> String {
-        line_part
-            .to_string()
-            .split("\u{1b}P")
-            .skip(1)
-            .filter_map(|chunk| chunk.split_once("\u{1b}\\").map(|(payload, _)| payload))
-            .filter_map(|payload| payload.split_once(';').map(|(_, text)| text))
-            .map(|text| text.rsplit_once('$').map_or(text, |(_, bytes)| bytes))
-            .map(|text| text.trim_start_matches(['z', 'x']))
-            .flat_map(|text| {
-                text.split(',')
-                    .filter_map(|byte| byte.parse::<u8>().ok())
-                    .map(char::from)
-                    .collect::<Vec<_>>()
-            })
-            .collect()
-    }
-
-    #[test]
-    fn normal_mode_renders_three_modifier_groups() {
-        #[rustfmt::skip]
-        let mode_info = ModeInfo {
-            mode: InputMode::Normal,
-            keybinds: vec![(
-                InputMode::Normal,
-                vec![
-                    (ctrl_alt('g'), vec![Action::SwitchToMode { input_mode: InputMode::Locked }]),
-                    (ctrl('p'), vec![Action::SwitchToMode { input_mode: InputMode::Pane }]),
-                    (ctrl('t'), vec![Action::SwitchToMode { input_mode: InputMode::Tab }]),
-                    (ctrl('n'), vec![Action::SwitchToMode { input_mode: InputMode::Resize }]),
-                    (ctrl_alt('s'), vec![Action::SwitchToMode { input_mode: InputMode::Scroll }]),
-                    (ctrl_alt('o'), vec![Action::SwitchToMode { input_mode: InputMode::Session }]),
-                    (ctrl('q'), vec![Action::Quit]),
-                    (alt('m'), vec![Action::NewPane { direction: None, pane_name: None, start_suppressed: false }]),
-                    (alt('f'), vec![Action::ToggleFloatingPanes]),
-                ],
-            )],
-            ..ModeInfo::default()
-        };
-
-        let (line, new_pane_range, floating_range) =
-            one_line_ui(&mode_info, None, 180, ">", false, None, false, false, false);
-        let line = decoded_ui_text(line);
-
-        let ctrl_alt = line.find("Ctrl-Alt +").unwrap();
-        let ctrl = line.find("Ctrl +").unwrap();
-        let alt = line.rfind("Alt +").unwrap();
-        assert!(ctrl_alt < ctrl && ctrl < alt, "{line}");
-        assert!(line[ctrl_alt..ctrl].contains("<g> LOCK"), "{line}");
-        assert!(line[ctrl_alt..ctrl].contains("<s> SEARCH"), "{line}");
-        assert!(line[ctrl_alt..ctrl].contains("<o> SESSION"), "{line}");
-        assert!(line[ctrl..alt].contains("<p> PANE"), "{line}");
-        assert!(line[ctrl..alt].contains("<q> QUIT"), "{line}");
-        assert!(line[alt..].contains("<m> New Pane"), "{line}");
-        assert!(line[alt..].contains("<f> Floating"), "{line}");
-        assert!(new_pane_range.is_some());
-        assert!(floating_range.is_some());
-    }
-}
-
 fn hovered_ribbon_wrap(body: String, palette: Styling, supports_arrow_fonts: bool) -> String {
     let ribbon_bg = palette.ribbon_unselected.emphasis_1;
     let outer_bg = palette.text_unselected.background;
@@ -2078,4 +2000,82 @@ fn get_common_modifiers(mut keyvec: Vec<&KeyWithModifier>) -> Vec<KeyModifier> {
             .collect();
     }
     common_modifiers.into_iter().collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ctrl_alt(key: char) -> KeyWithModifier {
+        KeyWithModifier::new(BareKey::Char(key))
+            .with_ctrl_modifier()
+            .with_alt_modifier()
+    }
+
+    fn ctrl(key: char) -> KeyWithModifier {
+        KeyWithModifier::new(BareKey::Char(key)).with_ctrl_modifier()
+    }
+
+    fn alt(key: char) -> KeyWithModifier {
+        KeyWithModifier::new(BareKey::Char(key)).with_alt_modifier()
+    }
+
+    fn decoded_ui_text(line_part: LinePart) -> String {
+        line_part
+            .to_string()
+            .split("\u{1b}P")
+            .skip(1)
+            .filter_map(|chunk| chunk.split_once("\u{1b}\\").map(|(payload, _)| payload))
+            .filter_map(|payload| payload.split_once(';').map(|(_, text)| text))
+            .map(|text| text.rsplit_once('$').map_or(text, |(_, bytes)| bytes))
+            .map(|text| text.trim_start_matches(['z', 'x']))
+            .flat_map(|text| {
+                text.split(',')
+                    .filter_map(|byte| byte.parse::<u8>().ok())
+                    .map(char::from)
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn normal_mode_renders_three_modifier_groups() {
+        #[rustfmt::skip]
+        let mode_info = ModeInfo {
+            mode: InputMode::Normal,
+            keybinds: vec![(
+                InputMode::Normal,
+                vec![
+                    (ctrl_alt('g'), vec![Action::SwitchToMode { input_mode: InputMode::Locked }]),
+                    (ctrl('p'), vec![Action::SwitchToMode { input_mode: InputMode::Pane }]),
+                    (ctrl('t'), vec![Action::SwitchToMode { input_mode: InputMode::Tab }]),
+                    (ctrl('n'), vec![Action::SwitchToMode { input_mode: InputMode::Resize }]),
+                    (ctrl_alt('s'), vec![Action::SwitchToMode { input_mode: InputMode::Scroll }]),
+                    (ctrl_alt('o'), vec![Action::SwitchToMode { input_mode: InputMode::Session }]),
+                    (ctrl('q'), vec![Action::Quit]),
+                    (alt('m'), vec![Action::NewPane { direction: None, pane_name: None, start_suppressed: false }]),
+                    (alt('f'), vec![Action::ToggleFloatingPanes]),
+                ],
+            )],
+            ..ModeInfo::default()
+        };
+
+        let (line, new_pane_range, floating_range) =
+            one_line_ui(&mode_info, None, 180, ">", false, None, false, false, false);
+        let line = decoded_ui_text(line);
+
+        let ctrl_alt = line.find("Ctrl-Alt +").unwrap();
+        let ctrl = line.find("Ctrl +").unwrap();
+        let alt = line.rfind("Alt +").unwrap();
+        assert!(ctrl_alt < ctrl && ctrl < alt, "{line}");
+        assert!(line[ctrl_alt..ctrl].contains("<g> LOCK"), "{line}");
+        assert!(line[ctrl_alt..ctrl].contains("<s> SEARCH"), "{line}");
+        assert!(line[ctrl_alt..ctrl].contains("<o> SESSION"), "{line}");
+        assert!(line[ctrl..alt].contains("<p> PANE"), "{line}");
+        assert!(line[ctrl..alt].contains("<q> QUIT"), "{line}");
+        assert!(line[alt..].contains("<m> New Pane"), "{line}");
+        assert!(line[alt..].contains("<f> Floating"), "{line}");
+        assert!(new_pane_range.is_some());
+        assert!(floating_range.is_some());
+    }
 }
