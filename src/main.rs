@@ -257,7 +257,7 @@ fn main() {
     {
         commands::delete_session(target_session, force);
     } else if let Some(path) = opts.server {
-        commands::start_server(path, opts.debug);
+        commands::start_server(path, opts.debug, opts.theme_mode);
     } else if opts.layout.is_some() || opts.layout_string.is_some() {
         if let Some(session_name) = opts
             .session

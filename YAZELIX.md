@@ -8,12 +8,20 @@ This branch is the clean Nova v1 rebuild of the temporary Yazelix Zellij fork.
 | Native Kitty implementation | `0e6e4404027a187f1399a43bf91bdbd13d9636e1` |
 | Previous fork | `yazelix_kgp_preview` at `c9e4c246ea47ad06e79f87aca7073fafe89ba8f1` |
 | Previous fork role | Behavior evidence and rollback only |
-| Current Yazelix runtime delta | None |
+| Current Yazelix runtime delta | Explicit startup theme mode |
 
 Upstream owns the complete Kitty graphics mechanism. Yazelix will add back only
 current Nova v1 behavior that cannot be expressed through upstream Zellij.
-Appearance startup, terminal titles, and plugin permission behavior must each
-be tested against this base before any local implementation is accepted.
+
+`--theme-mode dark|light` selects `theme_dark` or `theme_light` before a new
+session's first render. An explicitly themed session ignores ambient terminal
+theme reports while retaining manual theme actions and its selected mode across
+configuration reloads. Omitting the option keeps upstream behavior. The mode is
+passed only through the existing server bootstrap command; the client-server
+wire contract is unchanged.
+
+Terminal titles and plugin permission behavior must each be tested against this
+base before any local implementation is accepted.
 
 The rebuild is accepted for Main only after the exact child revision is
 published, the retained diff is reviewed, package and child-plugin checks pass,

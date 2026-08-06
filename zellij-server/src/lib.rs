@@ -60,8 +60,8 @@ use zellij_utils::{
         DEFAULT_SCROLL_BUFFER_SIZE, SCROLL_BUFFER_SIZE, ZELLIJ_SEEN_RELEASE_NOTES_CACHE_FILE,
     },
     data::{
-        ConnectToSession, Direction, InputMode, KeyWithModifier, LayoutInfo, LayoutWithError,
-        Style, WebSharing,
+        ConnectToSession, Direction, HostTerminalThemeMode, InputMode, KeyWithModifier, LayoutInfo,
+        LayoutWithError, Style, WebSharing,
     },
     errors::{prelude::*, ContextType, ErrorInstruction, FatalError, ServerContext},
     home::{default_layout_dir, get_default_data_dir},
@@ -836,7 +836,56 @@ mod session_state_tests {
     }
 }
 
-pub fn start_server(os_input: Box<dyn ServerOsApi>, socket_path: PathBuf) {
+fn initial_theme_name(
+    options: &Options,
+    initial_theme_mode: Option<HostTerminalThemeMode>,
+) -> Option<&String> {
+    initial_theme_mode
+        .and_then(|mode| match mode {
+            HostTerminalThemeMode::Dark => options.theme_dark.as_ref(),
+            HostTerminalThemeMode::Light => options.theme_light.as_ref(),
+        })
+        .or(options.theme.as_ref())
+}
+
+#[cfg(test)]
+mod initial_theme_tests {
+    use super::*;
+
+    #[test]
+    fn explicit_mode_selects_the_theme_pair_before_the_static_theme() {
+        let options = Options {
+            theme: Some("static".to_owned()),
+            theme_dark: Some("dark".to_owned()),
+            theme_light: Some("light".to_owned()),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            initial_theme_name(&options, Some(HostTerminalThemeMode::Light)).map(String::as_str),
+            Some("light")
+        );
+        assert_eq!(
+            initial_theme_name(&options, None).map(String::as_str),
+            Some("static")
+        );
+
+        let options = Options {
+            theme: Some("static".to_owned()),
+            ..Default::default()
+        };
+        assert_eq!(
+            initial_theme_name(&options, Some(HostTerminalThemeMode::Light)).map(String::as_str),
+            Some("static")
+        );
+    }
+}
+
+pub fn start_server(
+    os_input: Box<dyn ServerOsApi>,
+    socket_path: PathBuf,
+    initial_theme_mode: Option<HostTerminalThemeMode>,
+) {
     info!("Starting Zellij server!");
 
     #[cfg(unix)]
@@ -866,13 +915,14 @@ pub fn start_server(os_input: Box<dyn ServerOsApi>, socket_path: PathBuf) {
         }
     }
 
-    start_server_impl(os_input, socket_path, true);
+    start_server_impl(os_input, socket_path, true, initial_theme_mode);
 }
 
 pub fn start_server_impl(
     mut os_input: Box<dyn ServerOsApi>,
     socket_path: PathBuf,
     install_panic_hook: bool,
+    initial_theme_mode: Option<HostTerminalThemeMode>,
 ) {
     envs::set_zellij("0".to_string());
 
@@ -992,11 +1042,12 @@ pub fn start_server_impl(
                     None => config.options.clone(),
                 };
 
+                let initial_theme = initial_theme_name(&runtime_config_options, initial_theme_mode);
                 let client_attributes = ClientAttributes {
                     size: cli_assets.terminal_window_size,
                     style: Style {
                         colors: config
-                            .theme_config(runtime_config_options.theme.as_ref())
+                            .theme_config(initial_theme)
                             .unwrap_or_else(|| default_palette().into()),
                         rounded_corners: config.ui.pane_frames.rounded_corners,
                         hide_session_name: config.ui.pane_frames.hide_session_name,
@@ -1014,6 +1065,7 @@ pub fn start_server_impl(
                     config.clone(),
                     config.plugins.clone(),
                     client_id,
+                    initial_theme_mode,
                 );
                 info!("FirstClientConnected: session initialized, spawning tabs");
                 let mut runtime_configuration = config.clone();
@@ -2018,6 +2070,7 @@ fn init_session(
     mut config: Config,
     plugin_aliases: PluginAliases,
     client_id: ClientId,
+    initial_theme_mode: Option<HostTerminalThemeMode>,
 ) -> SessionMetaData {
     config.options = config.options.merge(*config_options.clone());
 
@@ -2127,6 +2180,7 @@ fn init_session(
                     config,
                     debug,
                     layout,
+                    initial_theme_mode,
                 )
                 .fatal();
             }
