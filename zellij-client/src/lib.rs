@@ -456,13 +456,14 @@ mod initial_theme_tests {
     #[test]
     fn forwards_the_initial_theme_mode_to_the_server() {
         let mut command = Command::new("zellij");
+        apply_initial_theme_mode(&mut command, Some(HostTerminalThemeMode::Dark));
         apply_initial_theme_mode(&mut command, Some(HostTerminalThemeMode::Light));
 
         let args: Vec<_> = command
             .get_args()
             .map(|arg| arg.to_str().unwrap())
             .collect();
-        assert_eq!(args, ["--theme-mode", "light"]);
+        assert_eq!(args, ["--theme-mode", "dark", "--theme-mode", "light"]);
     }
 }
 

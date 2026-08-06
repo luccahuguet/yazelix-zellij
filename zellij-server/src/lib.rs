@@ -854,6 +854,8 @@ mod initial_theme_tests {
 
     #[test]
     fn explicit_mode_selects_the_theme_pair_before_the_static_theme() {
+        use HostTerminalThemeMode::{Dark, Light};
+
         let options = Options {
             theme: Some("static".to_owned()),
             theme_dark: Some("dark".to_owned()),
@@ -861,10 +863,8 @@ mod initial_theme_tests {
             ..Default::default()
         };
 
-        assert_eq!(
-            initial_theme_name(&options, Some(HostTerminalThemeMode::Light)).map(String::as_str),
-            Some("light")
-        );
+        let selected = |mode| initial_theme_name(&options, Some(mode)).unwrap().as_str();
+        assert_eq!([selected(Dark), selected(Light)], ["dark", "light"]);
         assert_eq!(
             initial_theme_name(&options, None).map(String::as_str),
             Some("static")
@@ -875,7 +875,7 @@ mod initial_theme_tests {
             ..Default::default()
         };
         assert_eq!(
-            initial_theme_name(&options, Some(HostTerminalThemeMode::Light)).map(String::as_str),
+            initial_theme_name(&options, Some(Light)).map(String::as_str),
             Some("static")
         );
     }
