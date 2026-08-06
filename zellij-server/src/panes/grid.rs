@@ -3388,7 +3388,8 @@ impl Grid {
             KittyAction::TransmitAndDisplay | KittyAction::Display => {
                 if command.action == KittyAction::TransmitAndDisplay && command.unicode_placeholder
                 {
-                    let image = command.image.clone().ok_or_else(|| KittyError {
+                    let mut command = command;
+                    let image = command.image.take().ok_or_else(|| KittyError {
                         code: KittyErrorCode::Einval,
                         message: "missing image data".to_owned(),
                         image_id: command.image_id,
@@ -3397,14 +3398,15 @@ impl Grid {
                         quiet: command.quiet,
                     })?;
                     let assigned_id = self.kitty_grid.transmit(&command, image)?;
-                    self.kitty_grid
-                        .register_virtual_placement(assigned_id, &command);
-                    return Ok(KittyReplyData {
+                    let reply = KittyReplyData {
                         image_id: Some(assigned_id),
                         image_number: command.image_number,
                         placement_id: command.placement_id,
                         quiet: command.quiet,
-                    });
+                    };
+                    self.kitty_grid
+                        .register_virtual_placement(assigned_id, command);
+                    return Ok(reply);
                 }
                 let resolved = if command.action == KittyAction::TransmitAndDisplay {
                     match command.image.clone() {

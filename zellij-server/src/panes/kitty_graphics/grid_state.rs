@@ -238,8 +238,7 @@ impl KittyGrid {
         self.kitty_image_store.borrow_mut().touch(internal);
         Ok(pane_image_id)
     }
-    pub fn register_virtual_placement(&mut self, pane_image_id: u32, command: &KittyCommand) {
-        let mut command = command.clone();
+    pub fn register_virtual_placement(&mut self, pane_image_id: u32, mut command: KittyCommand) {
         command.image = None;
         self.virtual_placements.insert(pane_image_id, command);
     }
