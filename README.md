@@ -39,6 +39,29 @@
     </a>
 </p>
 
+# Yazelix fork
+
+This branch keeps the native Kitty graphics implementation at the pinned
+upstream Zellij base and adds only the Unicode-placeholder translation required
+by the current Yazi preview stream. The table is an ownership and
+Unicode-placeholder support matrix, not a claim that the pinned upstream base
+implements every part of the Kitty Graphics Protocol.
+
+| Kitty graphics area | Status | Owner and scope |
+| --- | --- | --- |
+| Parsing, capability replies, image transport and storage, ordinary placement, rendering, and deletion | Supported | Upstream Zellij owns the native mechanism and its existing protocol coverage. |
+| Resizing, clipping, occlusion, history, fullscreen, teardown, and nested-session behavior | Supported | Upstream Zellij owns terminal integration and image lifecycle. |
+| Current Yazi Unicode placeholders (`KGP-U1-YAZI-001`) | Supported | Yazelix accepts combined `a=T,U=1`, identifies the image from a 24-bit true-color foreground, turns the first cell of Yazi's complete row-major rectangle into one upstream placement, and stores placeholder glyphs as blank cells. |
+| Separate virtual-placement creation (`a=p,U=1`) | Missing from fork | The fork rejects Unicode-placeholder placement commands that are separate from transmission. |
+| Alternative image-ID encodings | Missing from fork | 8-bit palette IDs and the third-diacritic high byte used by 32-bit image IDs are not decoded. |
+| Placement IDs | Missing from fork | Underline-color placement IDs are not decoded, so independently addressed placements of one image are unsupported. |
+| Unicode row and column semantics | Missing from fork | Row and column diacritics, inherited or abbreviated coordinates, cropping, and source-cell selection are not interpreted. |
+| General placeholder grids | Missing from fork | Sparse, partial, overlapping, disconnected, arbitrarily ordered, and repeated placements are outside the current-Yazi contract. |
+| Full text-native and relative-placement lifecycle | Missing from fork | Placeholder-driven movement and deletion, multiple independent instances, and relative placements with virtual parents are not implemented by this branch's translation. |
+
+See [YAZELIX.md](YAZELIX.md) for the complete fork boundary, upstream base, and
+removal conditions.
+
 # What is this?
 
 [Zellij](#origin-of-the-name) is a workspace aimed at developers, ops-oriented people and anyone who loves the terminal. Similar programs are sometimes called "Terminal Multiplexers".

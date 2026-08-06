@@ -14,8 +14,9 @@ Upstream owns Kitty image storage, placement, rendering, and lifecycle. Its
 native implementation intentionally omits Unicode placeholders, so this branch
 accepts the current Yazi `U=1` row-major stream and translates its first
 true-color placeholder cell into one upstream-owned placement. Placeholder
-glyphs become blank backing cells. Abbreviated, sparse, overlapping, and
-placement-ID forms remain unsupported.
+glyphs become blank backing cells. The
+[README support matrix](README.md#yazelix-fork) records the exact supported and
+missing Unicode-placeholder semantics.
 
 `--theme-mode dark|light` selects `theme_dark` or `theme_light` before a new
 session's first render. An explicitly themed session ignores ambient terminal
