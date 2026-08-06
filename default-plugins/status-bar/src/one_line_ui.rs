@@ -551,58 +551,18 @@ fn render_mode_key_indicators(
     } else {
         base_mode_normal_mode_indicators(help)
     };
-    match common_modifiers_in_all_modes(&default_keys) {
-        Some(modifiers) => {
-            if let Some(default_keys) = default_keys.get(&help.mode) {
-                let keys_without_common_modifiers: Vec<KeyShortcut> = default_keys
-                    .iter()
-                    .map(|key_shortcut| {
-                        let key = key_shortcut
-                            .get_key()
-                            .map(|k| k.strip_common_modifiers(&modifiers));
-                        let mode = key_shortcut.get_mode();
-                        let action = key_shortcut.get_action();
-                        KeyShortcut::new(mode, action, key)
-                    })
-                    .collect();
-                render_common_modifiers(
-                    &colored_elements,
-                    help,
-                    &modifiers,
-                    &mut line_part_to_render,
-                    separator,
-                );
-
-                let full_shortcut_list =
-                    full_inline_keys_modes_shortcut_list(&keys_without_common_modifiers, help);
-
-                if line_part_to_render.len + full_shortcut_list.len <= max_len {
-                    line_part_to_render.append(&full_shortcut_list);
-                } else {
-                    let shortened_shortcut_list = shortened_inline_keys_modes_shortcut_list(
-                        &keys_without_common_modifiers,
-                        help,
-                    );
-                    if line_part_to_render.len + shortened_shortcut_list.len <= max_len {
-                        line_part_to_render.append(&shortened_shortcut_list);
-                    }
-                }
+    if let Some(default_keys) = default_keys.get(&help.mode) {
+        let full_shortcut_list =
+            grouped_mode_shortcut_list(default_keys, help, &colored_elements, separator, false);
+        if full_shortcut_list.len <= max_len {
+            line_part_to_render.append(&full_shortcut_list);
+        } else {
+            let shortened_shortcut_list =
+                grouped_mode_shortcut_list(default_keys, help, &colored_elements, separator, true);
+            if shortened_shortcut_list.len <= max_len {
+                line_part_to_render.append(&shortened_shortcut_list);
             }
-        },
-        None => {
-            if let Some(default_keys) = default_keys.get(&help.mode) {
-                let full_shortcut_list = full_modes_shortcut_list(&default_keys, help);
-                if line_part_to_render.len + full_shortcut_list.len <= max_len {
-                    line_part_to_render.append(&full_shortcut_list);
-                } else {
-                    let shortened_shortcut_list =
-                        shortened_modes_shortcut_list(&default_keys, help);
-                    if line_part_to_render.len + shortened_shortcut_list.len <= max_len {
-                        line_part_to_render.append(&shortened_shortcut_list);
-                    }
-                }
-            }
-        },
+        }
     }
     if line_part_to_render.len <= max_len {
         Some(line_part_to_render)
@@ -612,7 +572,7 @@ fn render_mode_key_indicators(
 }
 
 fn full_inline_keys_modes_shortcut_list(
-    keys_without_common_modifiers: &Vec<KeyShortcut>,
+    keys_without_common_modifiers: &[KeyShortcut],
     help: &ModeInfo,
 ) -> LinePart {
     let mut full_shortcut_list = LinePart::default();
@@ -633,7 +593,7 @@ fn full_inline_keys_modes_shortcut_list(
 }
 
 fn shortened_inline_keys_modes_shortcut_list(
-    keys_without_common_modifiers: &Vec<KeyShortcut>,
+    keys_without_common_modifiers: &[KeyShortcut],
     help: &ModeInfo,
 ) -> LinePart {
     let mut shortened_shortcut_list = LinePart::default();
@@ -652,83 +612,71 @@ fn shortened_inline_keys_modes_shortcut_list(
     shortened_shortcut_list
 }
 
-fn full_modes_shortcut_list(default_keys: &Vec<KeyShortcut>, help: &ModeInfo) -> LinePart {
-    let mut full_shortcut_list = LinePart::default();
-    for key in default_keys {
-        let is_selected = key.is_selected();
-        full_shortcut_list.append(&add_shortcut(
-            help,
-            &key.full_text(),
-            &key.key
-                .as_ref()
-                .map(|k| vec![k.clone()])
-                .unwrap_or_else(|| vec![]),
-            is_selected,
-            Some(3),
-        ));
-    }
-    full_shortcut_list
-}
-
-fn shortened_modes_shortcut_list(default_keys: &Vec<KeyShortcut>, help: &ModeInfo) -> LinePart {
-    let mut shortened_shortcut_list = LinePart::default();
-    for key in default_keys {
-        let is_selected = key.is_selected();
-        shortened_shortcut_list.append(&add_shortcut(
-            help,
-            &key.short_text(),
-            &key.key
-                .as_ref()
-                .map(|k| vec![k.clone()])
-                .unwrap_or_else(|| vec![]),
-            is_selected,
-            Some(3),
-        ));
-    }
-    shortened_shortcut_list
-}
-
-fn common_modifiers_in_all_modes(
-    key_shortcuts: &HashMap<InputMode, Vec<KeyShortcut>>,
-) -> Option<Vec<KeyModifier>> {
-    let Some(mut common_modifiers) = key_shortcuts.iter().next().and_then(|k| {
-        k.1.iter()
-            .next()
-            .and_then(|k| k.get_key().map(|k| k.key_modifiers.clone()))
-    }) else {
-        return None;
-    };
-    for (_mode, key_shortcuts) in key_shortcuts {
-        if key_shortcuts.is_empty() {
-            return None;
+fn grouped_mode_shortcut_list(
+    default_keys: &[KeyShortcut],
+    help: &ModeInfo,
+    colored_elements: &ColoredElements,
+    separator: &str,
+    shortened: bool,
+) -> LinePart {
+    let mut line_part = LinePart::default();
+    for (index, (modifiers, shortcuts)) in modifier_groups(default_keys).iter().enumerate() {
+        if index > 0 {
+            let gap = "    ";
+            line_part
+                .part
+                .push_str(&serialize_text(&Text::new(gap).opaque()));
+            line_part.len += gap.len();
         }
-        let Some(mut common_modifiers_for_mode) = key_shortcuts
-            .iter()
-            .next()
-            .unwrap()
-            .get_key()
-            .map(|k| k.key_modifiers.clone())
-        else {
-            return None;
+        if !modifiers.is_empty() {
+            render_common_modifiers(colored_elements, help, modifiers, &mut line_part, separator);
+        }
+        let shortcuts = if shortened {
+            shortened_inline_keys_modes_shortcut_list(shortcuts, help)
+        } else {
+            full_inline_keys_modes_shortcut_list(shortcuts, help)
         };
-        for key in key_shortcuts {
-            let Some(key) = key.get_key() else {
-                return None;
-            };
-            common_modifiers_for_mode = common_modifiers_for_mode
-                .intersection(&key.key_modifiers)
-                .cloned()
-                .collect();
+        line_part.append(&shortcuts);
+    }
+    line_part
+}
+
+fn modifier_groups(key_shortcuts: &[KeyShortcut]) -> Vec<(Vec<KeyModifier>, Vec<KeyShortcut>)> {
+    let mut groups: Vec<(Vec<KeyModifier>, Vec<KeyShortcut>)> = vec![];
+    for key_shortcut in key_shortcuts {
+        let Some(key) = key_shortcut.get_key() else {
+            continue;
+        };
+        let modifiers = key.key_modifiers.iter().copied().collect::<Vec<_>>();
+        let shortcut = KeyShortcut::new(
+            key_shortcut.get_mode(),
+            key_shortcut.get_action(),
+            Some(key.strip_common_modifiers(&modifiers)),
+        );
+        if let Some((_, shortcuts)) = groups
+            .iter_mut()
+            .find(|(group_modifiers, _)| group_modifiers == &modifiers)
+        {
+            shortcuts.push(shortcut);
+        } else {
+            groups.push((modifiers, vec![shortcut]));
         }
-        common_modifiers = common_modifiers
-            .intersection(&common_modifiers_for_mode)
-            .cloned()
-            .collect();
     }
-    if common_modifiers.is_empty() {
-        return None;
-    }
-    Some(common_modifiers.into_iter().collect())
+    groups.sort_by_key(|(modifiers, _)| {
+        if modifiers.len() == 2
+            && modifiers.contains(&KeyModifier::Ctrl)
+            && modifiers.contains(&KeyModifier::Alt)
+        {
+            0
+        } else if modifiers == &[KeyModifier::Ctrl] {
+            1
+        } else if modifiers == &[KeyModifier::Alt] {
+            2
+        } else {
+            3
+        }
+    });
+    groups
 }
 
 fn render_common_modifiers(
@@ -1286,6 +1234,84 @@ fn ribbon_range(start: usize, end: usize) -> Option<(usize, usize)> {
         Some((start, end))
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ctrl_alt(key: char) -> KeyWithModifier {
+        KeyWithModifier::new(BareKey::Char(key))
+            .with_ctrl_modifier()
+            .with_alt_modifier()
+    }
+
+    fn ctrl(key: char) -> KeyWithModifier {
+        KeyWithModifier::new(BareKey::Char(key)).with_ctrl_modifier()
+    }
+
+    fn alt(key: char) -> KeyWithModifier {
+        KeyWithModifier::new(BareKey::Char(key)).with_alt_modifier()
+    }
+
+    fn decoded_ui_text(line_part: LinePart) -> String {
+        line_part
+            .to_string()
+            .split("\u{1b}P")
+            .skip(1)
+            .filter_map(|chunk| chunk.split_once("\u{1b}\\").map(|(payload, _)| payload))
+            .filter_map(|payload| payload.split_once(';').map(|(_, text)| text))
+            .map(|text| text.rsplit_once('$').map_or(text, |(_, bytes)| bytes))
+            .map(|text| text.trim_start_matches(['z', 'x']))
+            .flat_map(|text| {
+                text.split(',')
+                    .filter_map(|byte| byte.parse::<u8>().ok())
+                    .map(char::from)
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn normal_mode_renders_three_modifier_groups() {
+        #[rustfmt::skip]
+        let mode_info = ModeInfo {
+            mode: InputMode::Normal,
+            keybinds: vec![(
+                InputMode::Normal,
+                vec![
+                    (ctrl_alt('g'), vec![Action::SwitchToMode { input_mode: InputMode::Locked }]),
+                    (ctrl('p'), vec![Action::SwitchToMode { input_mode: InputMode::Pane }]),
+                    (ctrl('t'), vec![Action::SwitchToMode { input_mode: InputMode::Tab }]),
+                    (ctrl('n'), vec![Action::SwitchToMode { input_mode: InputMode::Resize }]),
+                    (ctrl_alt('s'), vec![Action::SwitchToMode { input_mode: InputMode::Scroll }]),
+                    (ctrl_alt('o'), vec![Action::SwitchToMode { input_mode: InputMode::Session }]),
+                    (ctrl('q'), vec![Action::Quit]),
+                    (alt('m'), vec![Action::NewPane { direction: None, pane_name: None, start_suppressed: false }]),
+                    (alt('f'), vec![Action::ToggleFloatingPanes]),
+                ],
+            )],
+            ..ModeInfo::default()
+        };
+
+        let (line, new_pane_range, floating_range) =
+            one_line_ui(&mode_info, None, 180, ">", false, None, false, false, false);
+        let line = decoded_ui_text(line);
+
+        let ctrl_alt = line.find("Ctrl-Alt +").unwrap();
+        let ctrl = line.find("Ctrl +").unwrap();
+        let alt = line.rfind("Alt +").unwrap();
+        assert!(ctrl_alt < ctrl && ctrl < alt, "{line}");
+        assert!(line[ctrl_alt..ctrl].contains("<g> LOCK"), "{line}");
+        assert!(line[ctrl_alt..ctrl].contains("<s> SEARCH"), "{line}");
+        assert!(line[ctrl_alt..ctrl].contains("<o> SESSION"), "{line}");
+        assert!(line[ctrl..alt].contains("<p> PANE"), "{line}");
+        assert!(line[ctrl..alt].contains("<q> QUIT"), "{line}");
+        assert!(line[alt..].contains("<m> New Pane"), "{line}");
+        assert!(line[alt..].contains("<f> Floating"), "{line}");
+        assert!(new_pane_range.is_some());
+        assert!(floating_range.is_some());
     }
 }
 

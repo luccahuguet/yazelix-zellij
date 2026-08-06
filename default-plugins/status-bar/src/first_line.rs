@@ -100,20 +100,6 @@ impl KeyShortcut {
             _ => false,
         }
     }
-    pub fn short_text(&self) -> String {
-        match self.action {
-            KeyAction::Lock => String::from("Lo"),
-            KeyAction::Unlock => String::from("Un"),
-            KeyAction::Pane => String::from("Pa"),
-            KeyAction::Tab => String::from("Ta"),
-            KeyAction::Resize => String::from("Re"),
-            KeyAction::Search => String::from("Se"),
-            KeyAction::Quit => String::from("Qu"),
-            KeyAction::Session => String::from("Se"),
-            KeyAction::Move => String::from("Mo"),
-            KeyAction::Tmux => String::from("Tm"),
-        }
-    }
 }
 
 /// Generate long mode shortcut tile.
