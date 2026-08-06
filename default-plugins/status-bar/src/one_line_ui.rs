@@ -2033,7 +2033,6 @@ mod tests {
                 text.split(',')
                     .filter_map(|byte| byte.parse::<u8>().ok())
                     .map(char::from)
-                    .collect::<Vec<_>>()
             })
             .collect()
     }
