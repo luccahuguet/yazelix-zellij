@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    env,
     fs::{self, File},
     io::Write,
     path::PathBuf,
@@ -43,7 +44,9 @@ impl PermissionCache {
     }
 
     pub fn from_path_or_default(cache_path: Option<PathBuf>) -> Self {
-        let cache_path = cache_path.unwrap_or(ZELLIJ_PLUGIN_PERMISSIONS_CACHE.to_path_buf());
+        let cache_path = cache_path
+            .or_else(|| env::var_os("ZELLIJ_PLUGIN_PERMISSIONS_CACHE").map(PathBuf::from))
+            .unwrap_or(ZELLIJ_PLUGIN_PERMISSIONS_CACHE.to_path_buf());
 
         let granted = match fs::read_to_string(cache_path.clone()) {
             Ok(raw_string) => PermissionCache::from_string(raw_string).unwrap_or_default(),
@@ -63,5 +66,29 @@ impl PermissionCache {
         let mut f = File::create(&self.path)?;
         write!(f, "{}", PermissionCache::to_string(&self.granted))?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn environment_cache_path_precedes_default_but_not_explicit_path() {
+        let environment_cache = tempfile::NamedTempFile::new().unwrap();
+        let explicit_cache = tempfile::NamedTempFile::new().unwrap();
+
+        let previous = std::env::var_os("ZELLIJ_PLUGIN_PERMISSIONS_CACHE");
+        std::env::set_var("ZELLIJ_PLUGIN_PERMISSIONS_CACHE", environment_cache.path());
+        let from_environment = PermissionCache::from_path_or_default(None);
+        let from_explicit =
+            PermissionCache::from_path_or_default(Some(explicit_cache.path().into()));
+        match previous {
+            Some(value) => std::env::set_var("ZELLIJ_PLUGIN_PERMISSIONS_CACHE", value),
+            None => std::env::remove_var("ZELLIJ_PLUGIN_PERMISSIONS_CACHE"),
+        }
+
+        assert_eq!(from_environment.path, environment_cache.path());
+        assert_eq!(from_explicit.path, explicit_cache.path());
     }
 }
