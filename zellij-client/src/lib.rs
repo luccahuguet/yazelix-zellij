@@ -459,12 +459,13 @@ mod initial_theme_tests {
 
         let command_args = |mode| {
             let mut command = Command::new("zellij");
-            apply_initial_theme_mode(&mut command, Some(mode));
+            apply_initial_theme_mode(&mut command, mode);
             let args: Vec<_> = command.get_args().map(ToOwned::to_owned).collect();
             args
         };
-        assert_eq!(command_args(Dark), ["--theme-mode", "dark"]);
-        assert_eq!(command_args(Light), ["--theme-mode", "light"]);
+        assert!(command_args(None).is_empty());
+        assert_eq!(command_args(Some(Dark)), ["--theme-mode", "dark"]);
+        assert_eq!(command_args(Some(Light)), ["--theme-mode", "light"]);
     }
 }
 
