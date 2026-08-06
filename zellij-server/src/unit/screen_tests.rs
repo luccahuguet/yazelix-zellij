@@ -9550,15 +9550,18 @@ fn host_theme_emits_again_on_mode_flip() {
 }
 
 #[test]
-fn explicit_theme_mode_ignores_host_reports_but_accepts_manual_actions() {
-    use zellij_utils::data::{HostTerminalThemeMode, DEFAULT_STYLES};
+fn explicit_theme_mode_owns_ambient_manual_and_reload_behavior() {
+    use zellij_utils::data::{HostTerminalThemeMode, Styling, DEFAULT_STYLES};
 
     let size = Size { cols: 80, rows: 20 };
     let (mut screen, capture) = create_new_screen_with_theme_capture(size);
+    let dark = DEFAULT_STYLES;
+    let mut light = DEFAULT_STYLES;
+    light.text_unselected = Default::default();
     screen.host_terminal_theme_mode = Some(HostTerminalThemeMode::Dark);
     screen.explicit_theme_mode = true;
-    screen.host_theme_dark_styling = Some(DEFAULT_STYLES);
-    screen.host_theme_light_styling = Some(DEFAULT_STYLES);
+    screen.host_theme_dark_styling = Some(dark);
+    screen.host_theme_light_styling = Some(light);
 
     screen
         .apply_host_theme_report(HostTerminalThemeMode::Light)
@@ -9580,23 +9583,9 @@ fn explicit_theme_mode_ignores_host_reports_but_accepts_manual_actions() {
         event,
         Event::HostTerminalThemeChanged(HostTerminalThemeMode::Light)
     )));
-}
-
-#[test]
-fn config_reload_preserves_the_selected_theme_mode() {
-    use zellij_utils::data::{HostTerminalThemeMode, Styling, DEFAULT_STYLES};
-
-    let size = Size { cols: 80, rows: 20 };
-    let (mut screen, _) = create_new_screen_with_theme_capture(size);
-    let fallback = Styling::default();
-    let dark = DEFAULT_STYLES;
-    let mut light = DEFAULT_STYLES;
-    light.text_unselected = Default::default();
-    screen.host_terminal_theme_mode = Some(HostTerminalThemeMode::Light);
-    screen.explicit_theme_mode = true;
 
     assert_eq!(
-        screen.replace_host_theme_styling(Some(dark), Some(light), fallback),
+        screen.replace_host_theme_styling(Some(dark), Some(light), Styling::default()),
         light
     );
 }

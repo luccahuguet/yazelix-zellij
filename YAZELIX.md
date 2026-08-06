@@ -20,8 +20,14 @@ configuration reloads. Omitting the option keeps upstream behavior. The mode is
 passed only through the existing server bootstrap command; the client-server
 wire contract is unchanged.
 
-Terminal titles and plugin permission behavior must each be tested against this
-base before any local implementation is accepted.
+The old terminal-title prefix has no current Nova or Mars consumer and is not
+retained. Plugin permissions remain upstream-owned unless focused proof finds a
+v1 gap. Late-plugin theme replay and the accepted three-island status bar remain
+separate focused slices.
+
+This startup delta is removable when upstream provides equivalent explicit
+new-session theme selection, ambient-report authority, manual switching, and
+reload behavior.
 
 The rebuild is accepted for Main only after the exact child revision is
 published, the retained diff is reviewed, package and child-plugin checks pass,
