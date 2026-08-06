@@ -9386,16 +9386,20 @@ struct ThemeCapture {
 }
 
 impl ThemeCapture {
-    fn drain_plugin_events(&self) -> Vec<Event> {
+    fn drain_plugin_updates(&self) -> Vec<(Option<u32>, Option<ClientId>, Event)> {
         let mut out = Vec::new();
         while let Ok((instr, _ctx)) = self.plugin_rx.try_recv() {
             if let PluginInstruction::Update(updates) = instr {
-                for (_pid, _cid, ev) in updates {
-                    out.push(ev);
-                }
+                out.extend(updates);
             }
         }
         out
+    }
+    fn drain_plugin_events(&self) -> Vec<Event> {
+        self.drain_plugin_updates()
+            .into_iter()
+            .map(|(_, _, event)| event)
+            .collect()
     }
     fn drain_pty_writes(&self) -> Vec<(Vec<u8>, u32)> {
         let mut out = Vec::new();
@@ -9546,6 +9550,33 @@ fn host_theme_emits_again_on_mode_flip() {
         )),
         "mode flip must re-emit the plugin event, got: {:?}",
         events
+    );
+}
+
+#[test]
+fn host_theme_replays_current_mode_only_to_new_plugin_subscriber() {
+    use zellij_utils::data::HostTerminalThemeMode;
+
+    let size = Size { cols: 80, rows: 20 };
+    let (mut screen, capture) = create_new_screen_with_theme_capture(size);
+
+    screen
+        .replay_host_terminal_theme_mode_to_plugin(42, 7)
+        .expect("unknown mode ignored");
+    assert!(capture.drain_plugin_updates().is_empty());
+
+    screen.host_terminal_theme_mode = Some(HostTerminalThemeMode::Light);
+    screen
+        .replay_host_terminal_theme_mode_to_plugin(42, 7)
+        .expect("current mode replayed");
+
+    assert_eq!(
+        capture.drain_plugin_updates(),
+        vec![(
+            Some(42),
+            Some(7),
+            Event::HostTerminalThemeChanged(HostTerminalThemeMode::Light),
+        )]
     );
 }
 

@@ -8,7 +8,7 @@ This branch is the clean Nova v1 rebuild of the temporary Yazelix Zellij fork.
 | Native Kitty implementation | `0e6e4404027a187f1399a43bf91bdbd13d9636e1` |
 | Previous fork | `yazelix_kgp_preview` at `c9e4c246ea47ad06e79f87aca7073fafe89ba8f1` |
 | Previous fork role | Behavior evidence and rollback only |
-| Current Yazelix runtime delta | Explicit startup theme mode |
+| Current Yazelix runtime delta | Explicit startup theme mode and late-plugin theme replay |
 
 Upstream owns the complete Kitty graphics mechanism. Yazelix will add back only
 current Nova v1 behavior that cannot be expressed through upstream Zellij.
@@ -20,14 +20,17 @@ configuration reloads. Omitting the option keeps upstream behavior. The mode is
 passed only through the existing server bootstrap command; the client-server
 wire contract is unchanged.
 
+When a plugin subscribes to host-theme changes after the session mode is known,
+the screen sends the current mode only to that plugin and client. No mode is
+sent before the session has one.
+
 The old terminal-title prefix has no current Nova or Mars consumer and is not
 retained. Plugin permissions remain upstream-owned unless focused proof finds a
-v1 gap. Late-plugin theme replay and the accepted three-island status bar remain
-separate focused slices.
+v1 gap. The accepted three-island status bar remains a separate focused slice.
 
-This startup delta is removable when upstream provides equivalent explicit
-new-session theme selection, ambient-report authority, manual switching, and
-reload behavior.
+The appearance delta is removable when upstream provides equivalent explicit
+new-session theme selection, ambient-report authority, manual switching, reload
+behavior, and current-state delivery to late plugin subscribers.
 
 The rebuild is accepted for Main only after the exact child revision is
 published, the retained diff is reviewed, package and child-plugin checks pass,

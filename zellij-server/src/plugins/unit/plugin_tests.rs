@@ -3,12 +3,13 @@ use crate::screen::ScreenInstruction;
 use crate::{channels::SenderWithContext, thread_bus::Bus, ServerInstruction};
 use insta::assert_snapshot;
 use lazy_static::lazy_static;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 use tempfile::tempdir;
 use wasmi::Engine;
 use zellij_utils::data::{
-    BareKey, Event, InputMode, KeyWithModifier, ModeInfo, PermissionStatus, PermissionType,
+    BareKey, Event, EventType, InputMode, KeyWithModifier, ModeInfo, PermissionStatus,
+    PermissionType,
 };
 use zellij_utils::errors::ErrorContext;
 use zellij_utils::input::actions::Action;
@@ -390,6 +391,29 @@ fn create_plugin_thread(
         }
     };
     (to_plugin, screen_receiver, Box::new(teardown))
+}
+
+#[test]
+fn host_theme_subscription_requests_the_current_mode() {
+    let (to_plugin, from_plugin, teardown) = create_plugin_thread(None, None);
+    let subscriptions = HashSet::from([EventType::HostTerminalThemeChanged]);
+
+    to_plugin
+        .send(PluginInstruction::PluginSubscribedToEvents(
+            42,
+            7,
+            subscriptions,
+        ))
+        .unwrap();
+
+    let (instruction, _) = from_plugin
+        .recv_timeout(std::time::Duration::from_secs(1))
+        .unwrap();
+    assert!(matches!(
+        instruction,
+        ScreenInstruction::ReplayHostTerminalThemeToPlugin(42, 7)
+    ));
+    teardown();
 }
 
 fn create_plugin_thread_with_server_receiver(
