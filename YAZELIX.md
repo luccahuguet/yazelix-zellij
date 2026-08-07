@@ -8,7 +8,7 @@ This branch is the clean Nova v1 rebuild of the temporary Yazelix Zellij fork.
 | Native Kitty implementation | `0e6e4404027a187f1399a43bf91bdbd13d9636e1` |
 | Previous fork | `yazelix_kgp_preview` at `c9e4c246ea47ad06e79f87aca7073fafe89ba8f1` |
 | Previous fork role | Behavior evidence and rollback only |
-| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, isolated permission-cache selection, current-Yazi Unicode placeholder translation, and stable stacked-pane order |
+| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, isolated permission-cache selection, current-Yazi Unicode placeholder translation, stable stacked-pane order, and upstream disconnected-client plugin cleanup |
 
 Upstream owns Kitty image storage, placement, rendering, and lifecycle. Its
 native implementation intentionally omits Unicode placeholders, so this branch
@@ -70,6 +70,13 @@ The delta is removable when upstream resolves
 [#2669](https://github.com/zellij-org/zellij/issues/2669) and
 [#4084](https://github.com/zellij-org/zellij/issues/4084) with equivalent
 ordering behavior.
+
+The fork carries the two commits from upstream
+[#5272](https://github.com/zellij-org/zellij/pull/5272). A replacement client
+gets a fresh ID, and after its plugins start, disconnected client-specific
+plugin instances are removed so stale orchestrators cannot process later pipes.
+This delta is removable when that pull request or equivalent cleanup lands
+upstream. Simultaneously connected clients retain upstream broadcast behavior.
 
 The rebuild is accepted for Main only after the exact child revision is
 published, the retained diff is reviewed, package and child-plugin checks pass,
