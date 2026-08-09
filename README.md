@@ -1,4 +1,4 @@
-# Yazelix Zellij Temporary Fork
+# Nova Zellij Temporary Fork
 
 This branch is a temporary Yazelix fork of Zellij for managed Yazi image
 previews through Kitty graphics passthrough and runtime appearance switching.
@@ -15,7 +15,7 @@ previews through Kitty graphics passthrough and runtime appearance switching.
 | Removal gate | Drop and archive this fork once upstream Zellij supports all the implemented changes in this fork|
 
 Main Yazelix fork policy lives in
-[Fork and child-repo maintenance](https://github.com/luccahuguet/yazelix/blob/main/docs/contracts/fork_child_repo_maintenance.md).
+[Fork and child-repo maintenance](https://github.com/Yazelix/nova/blob/main/docs/contracts/fork_child_repo_maintenance.md).
 
 ## Upstream Zellij README
 
