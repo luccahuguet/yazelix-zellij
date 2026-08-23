@@ -8,7 +8,7 @@ This branch is the clean Nova v1 rebuild of the temporary Yazelix Zellij fork.
 | Native Kitty implementation | `0e6e4404027a187f1399a43bf91bdbd13d9636e1` |
 | Previous fork | `yazelix_kgp_preview` at `c9e4c246ea47ad06e79f87aca7073fafe89ba8f1` |
 | Previous fork role | Behavior evidence and rollback only |
-| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, and isolated permission-cache selection |
+| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, isolated permission-cache selection, and stable stacked-pane order |
 
 Upstream owns the complete Kitty graphics mechanism. Yazelix will add back only
 current Nova v1 behavior that cannot be expressed through upstream Zellij.
@@ -54,6 +54,14 @@ behavior.
 
 The permission seam is removable when upstream can make background plugin
 requests visible, ordered, granted, and replayed without blocking CLI pipes.
+
+Stack focus and removal preserve each surviving pane's logical identity, then
+compact positions after a close. This keeps visible stack order stable when a
+pane is opened or closed and when Yazelix reapplies its sidebar swap layout.
+The delta is removable when upstream resolves
+[#2669](https://github.com/zellij-org/zellij/issues/2669) and
+[#4084](https://github.com/zellij-org/zellij/issues/4084) with equivalent
+ordering behavior.
 
 The rebuild is accepted for Main only after the exact child revision is
 published, the retained diff is reviewed, package and child-plugin checks pass,
