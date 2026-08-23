@@ -85,33 +85,10 @@ impl KeyShortcut {
         };
         format!("{}", key)
     }
-    pub fn get_key(&self) -> Option<KeyWithModifier> {
-        self.key.clone()
-    }
-    pub fn get_mode(&self) -> KeyMode {
-        self.mode
-    }
-    pub fn get_action(&self) -> KeyAction {
-        self.action
-    }
     pub fn is_selected(&self) -> bool {
         match self.mode {
             KeyMode::Selected => true,
             _ => false,
-        }
-    }
-    pub fn short_text(&self) -> String {
-        match self.action {
-            KeyAction::Lock => String::from("Lo"),
-            KeyAction::Unlock => String::from("Un"),
-            KeyAction::Pane => String::from("Pa"),
-            KeyAction::Tab => String::from("Ta"),
-            KeyAction::Resize => String::from("Re"),
-            KeyAction::Search => String::from("Se"),
-            KeyAction::Quit => String::from("Qu"),
-            KeyAction::Session => String::from("Se"),
-            KeyAction::Move => String::from("Mo"),
-            KeyAction::Tmux => String::from("Tm"),
         }
     }
 }
