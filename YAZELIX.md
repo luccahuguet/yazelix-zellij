@@ -1,17 +1,17 @@
 # Yazelix Zellij Fork
 
-This branch is the clean Nova v1 rebuild of the temporary Yazelix Zellij fork.
+This branch is the clean Nova rebuild of the temporary Zellij fork.
 
 | Field | Value |
 | --- | --- |
-| Upstream base | `zellij-org/zellij` at `5254e4fc1dd784ef872644190dc5e2bcb0981bed` |
-| Native Kitty implementation | `0e6e4404027a187f1399a43bf91bdbd13d9636e1` |
-| Previous fork | `yazelix_kgp_preview` at `c9e4c246ea47ad06e79f87aca7073fafe89ba8f1` |
-| Previous fork role | Behavior evidence and rollback only |
+| Upstream base | `zellij-org/zellij` tag `v0.45.0` at `13e1c25a2b1ef61d90ecd1765e660c575e90977b` |
+| Previous fork | `yazelix_native_kitty_v1` at `bbccdea6eda81f314151160f9b3f8882a26478ec` |
+| Previous fork role | Behavior evidence and rollback only; do not replay mechanically |
 | Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, isolated permission-cache selection, stable stacked-pane order, and upstream disconnected-client plugin cleanup |
 
-Upstream owns the complete Kitty graphics mechanism. Yazelix will add back only
-current Nova v1 behavior that cannot be expressed through upstream Zellij.
+Upstream owns the complete Kitty graphics mechanism. Yazi `v26.8.15` detects
+Zellij and uses its native direct-placement path before falling back to Sixel.
+The previous Unicode-placeholder translator is intentionally absent.
 
 `--theme-mode dark|light` selects `theme_dark` or `theme_light` before a new
 session's first render. An explicitly themed session ignores ambient terminal
@@ -36,7 +36,7 @@ binary. After changing the status-bar source, rebuild that one asset with
 from `target/wasm32-wasip1/release/status-bar.wasm`, and verify the two files
 are byte-identical before packaging.
 
-The old terminal-title prefix has no current Nova or Mars consumer and is not
+The old terminal-title prefix has no current Nova or Nova Rio consumer and is not
 retained. Fresh-session dogfood proved that background bundled plugins can
 remain pending behind inaccessible upstream permission prompts, blocking popup
 and pane-orchestrator pipes. When no explicit call-site path is provided, the
@@ -70,7 +70,7 @@ plugin instances are removed so stale orchestrators cannot process later pipes.
 This delta is removable when that pull request or equivalent cleanup lands
 upstream. Simultaneously connected clients retain upstream broadcast behavior.
 
-The rebuild is accepted for Main only after the exact child revision is
-published, the retained diff is reviewed, package and child-plugin checks pass,
-and fresh installed Nova sessions prove tiled and popup Yazi previews through
-Mars. Until then, Main continues to consume the previous fork revision.
+The rebuild is accepted only after the exact child revision is published, the
+retained diff is reviewed, package and child-plugin checks pass, and fresh
+installed Nova sessions prove tiled and popup Yazi previews through Nova Rio.
+Until then, Nova channels continue to consume the previous fork revision.

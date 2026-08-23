@@ -39,6 +39,21 @@
     </a>
 </p>
 
+# Nova Zellij fork
+
+This branch starts at exact upstream Zellij `v0.45.0`. Upstream owns Kitty
+graphics, including the direct-placement path used by Yazi `v26.8.15`.
+Nova retains five isolated behaviors that are not yet available upstream:
+
+- explicit startup appearance with late-plugin theme replay
+- grouped `Ctrl-Alt`, `Ctrl`, and `Alt` status hints
+- an isolated packaged-plugin permission cache
+- stable stacked-pane ordering
+- disconnected-client plugin cleanup
+
+See [YAZELIX.md](YAZELIX.md) for the complete fork boundary and removal
+conditions.
+
 # What is this?
 
 [Zellij](#origin-of-the-name) is a workspace aimed at developers, ops-oriented people and anyone who loves the terminal. Similar programs are sometimes called "Terminal Multiplexers".
