@@ -1042,7 +1042,7 @@ pub enum Event {
     ActivePaneScroll(Option<(usize, usize)>),
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, ValueEnum)]
 pub enum HostTerminalThemeMode {
     Dark,
     Light,

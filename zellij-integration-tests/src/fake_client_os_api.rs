@@ -215,7 +215,12 @@ impl ClientOsApi for FakeClientOsApi {
         *self.send_instructions_to_server.lock().unwrap() = Some(ipc_sender);
         *self.receive_instructions_from_server.lock().unwrap() = Some(ipc_receiver);
     }
-    fn spawn_server(&self, socket_path: &Path, _debug: bool) -> Result<(), std::io::Error> {
+    fn spawn_server(
+        &self,
+        socket_path: &Path,
+        _debug: bool,
+        _initial_theme_mode: Option<zellij_utils::data::HostTerminalThemeMode>,
+    ) -> Result<(), std::io::Error> {
         if let Some(server_spawner) = self.server_spawner.lock().unwrap().take() {
             server_spawner(socket_path.to_path_buf());
         }

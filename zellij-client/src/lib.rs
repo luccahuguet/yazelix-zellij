@@ -157,7 +157,10 @@ use zellij_utils::cli::CliArgs;
 use zellij_utils::{
     channels::{self, ChannelWithContext, SenderWithContext},
     consts::{set_permissions, ZELLIJ_SOCK_DIR},
-    data::{ClientId, ConnectToSession, KeyWithModifier, LayoutInfo, LayoutMetadata},
+    data::{
+        ClientId, ConnectToSession, HostTerminalThemeMode, KeyWithModifier, LayoutInfo,
+        LayoutMetadata,
+    },
     envs,
     errors::{ClientContext, ContextType, ErrorInstruction},
     input::{
@@ -454,17 +457,51 @@ fn create_ipc_pipe(teardown: Option<TerminalTeardown>) -> PathBuf {
     sock_dir
 }
 
+fn apply_initial_theme_mode(cmd: &mut Command, initial_theme_mode: Option<HostTerminalThemeMode>) {
+    if let Some(initial_theme_mode) = initial_theme_mode {
+        cmd.arg("--theme-mode").arg(match initial_theme_mode {
+            HostTerminalThemeMode::Dark => "dark",
+            HostTerminalThemeMode::Light => "light",
+        });
+    }
+}
+
+#[cfg(test)]
+mod initial_theme_tests {
+    use super::*;
+
+    #[test]
+    fn forwards_the_initial_theme_mode_to_the_server() {
+        use HostTerminalThemeMode::{Dark, Light};
+
+        let command_args = |mode| {
+            let mut command = Command::new("zellij");
+            apply_initial_theme_mode(&mut command, mode);
+            let args: Vec<_> = command.get_args().map(ToOwned::to_owned).collect();
+            args
+        };
+        assert!(command_args(None).is_empty());
+        assert_eq!(command_args(Some(Dark)), ["--theme-mode", "dark"]);
+        assert_eq!(command_args(Some(Light)), ["--theme-mode", "light"]);
+    }
+}
+
 /// Spawn the Zellij server process.
 ///
 /// On Unix the server daemonizes (double-fork) inside start_server(), so
 /// the intermediate child exits immediately and `cmd.status()` returns.
 #[cfg(not(windows))]
-pub fn spawn_server(socket_path: &Path, debug: bool) -> io::Result<()> {
+pub fn spawn_server(
+    socket_path: &Path,
+    debug: bool,
+    initial_theme_mode: Option<HostTerminalThemeMode>,
+) -> io::Result<()> {
     let mut cmd = Command::new(current_exe()?);
     cmd.arg("--server").arg(socket_path);
     if debug {
         cmd.arg("--debug");
     }
+    apply_initial_theme_mode(&mut cmd, initial_theme_mode);
     let status = cmd.status()?;
     if status.success() {
         Ok(())
@@ -486,13 +523,18 @@ pub fn spawn_server(socket_path: &Path, debug: bool) -> io::Result<()> {
 /// DETACHED_PROCESS leaves stdin/stdout/stderr as NULL, which breaks PTY
 /// creation, WASM plugin loading, and logging.
 #[cfg(windows)]
-pub fn spawn_server(socket_path: &Path, debug: bool) -> io::Result<()> {
+pub fn spawn_server(
+    socket_path: &Path,
+    debug: bool,
+    initial_theme_mode: Option<HostTerminalThemeMode>,
+) -> io::Result<()> {
     use std::os::windows::process::CommandExt;
     let mut cmd = Command::new(current_exe()?);
     cmd.arg("--server").arg(socket_path);
     if debug {
         cmd.arg("--debug");
     }
+    apply_initial_theme_mode(&mut cmd, initial_theme_mode);
     const CREATE_NO_WINDOW: u32 = 0x08000000;
     const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
     cmd.creation_flags(CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP);
@@ -958,6 +1000,10 @@ pub fn start_client(
     let mut reconnect_to_session = None;
     os_input.unset_raw_mode().unwrap();
 
+    let initial_theme_mode = match &info {
+        ClientInfo::New(..) | ClientInfo::Resurrect(..) => cli_args.theme_mode,
+        _ => None,
+    };
     if !is_a_reconnect {
         // we don't do this for a reconnect because our controlling terminal already has the
         // attributes we want from it, and some terminals don't treat these atomically (looking at
@@ -976,10 +1022,12 @@ pub fn start_client(
         // current mode. Sent right after CLEAR_CLIENT_TERMINAL_ATTRIBUTES
         // so there's no window in which the host is unsubscribed.
         // Hosts that don't support 2031 ignore both sequences.
-        stdout
-            .write_all(ENABLE_HOST_THEME_NOTIFY.as_bytes())
-            .unwrap();
-        stdout.write_all(QUERY_HOST_THEME.as_bytes()).unwrap();
+        if initial_theme_mode.is_none() {
+            stdout
+                .write_all(ENABLE_HOST_THEME_NOTIFY.as_bytes())
+                .unwrap();
+            stdout.write_all(QUERY_HOST_THEME.as_bytes()).unwrap();
+        }
     }
     envs::set_zellij("0".to_string());
     config.env.set_vars();
@@ -1088,7 +1136,7 @@ pub fn start_client(
             os_input.update_session_name(name);
             let ipc_pipe = create_ipc_pipe(Some(terminal_teardown));
 
-            if let Err(e) = os_input.spawn_server(&*ipc_pipe, cli_args.debug) {
+            if let Err(e) = os_input.spawn_server(&*ipc_pipe, cli_args.debug, initial_theme_mode) {
                 exit_after_startup_error(Some(terminal_teardown), spawn_server_error_message(e));
             }
             if should_start_web_server {
@@ -1145,7 +1193,7 @@ pub fn start_client(
             os_input.update_session_name(name);
             let ipc_pipe = create_ipc_pipe(Some(terminal_teardown));
 
-            if let Err(e) = os_input.spawn_server(&*ipc_pipe, cli_args.debug) {
+            if let Err(e) = os_input.spawn_server(&*ipc_pipe, cli_args.debug, initial_theme_mode) {
                 exit_after_startup_error(Some(terminal_teardown), spawn_server_error_message(e));
             }
             if should_start_web_server {
@@ -1669,7 +1717,7 @@ pub fn start_server_detached(
             os_input.update_session_name(name);
             let ipc_pipe = create_ipc_pipe(None);
 
-            if let Err(e) = os_input.spawn_server(&*ipc_pipe, cli_args.debug) {
+            if let Err(e) = os_input.spawn_server(&*ipc_pipe, cli_args.debug, cli_args.theme_mode) {
                 exit_after_startup_error(None, spawn_server_error_message(e));
             }
             if should_start_web_server {
@@ -1727,7 +1775,7 @@ pub fn start_server_detached(
             os_input.update_session_name(name);
             let ipc_pipe = create_ipc_pipe(None);
 
-            if let Err(e) = os_input.spawn_server(&*ipc_pipe, cli_args.debug) {
+            if let Err(e) = os_input.spawn_server(&*ipc_pipe, cli_args.debug, cli_args.theme_mode) {
                 exit_after_startup_error(None, spawn_server_error_message(e));
             }
             if should_start_web_server {

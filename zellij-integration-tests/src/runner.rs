@@ -138,6 +138,7 @@ fn in_process_server_spawner(
                     Box::new(fake_server_os_api),
                     socket_path,
                     install_panic_hook,
+                    None,
                 );
             })
             .unwrap();

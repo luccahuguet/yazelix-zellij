@@ -34,7 +34,7 @@ use miette::{Report, Result};
 use zellij_server::{os_input_output::get_server_os_input, start_server as start_server_impl};
 use zellij_utils::{
     cli::{CliArgs, Command, SessionCommand, Sessions},
-    data::ConnectToSession,
+    data::{ConnectToSession, HostTerminalThemeMode},
     envs,
     input::{
         actions::Action,
@@ -165,11 +165,15 @@ fn get_os_input<OsInputOutput>(
     }
 }
 
-pub(crate) fn start_server(path: PathBuf, debug: bool) {
+pub(crate) fn start_server(
+    path: PathBuf,
+    debug: bool,
+    initial_theme_mode: Option<HostTerminalThemeMode>,
+) {
     // Set instance-wide debug mode
     zellij_utils::consts::DEBUG_MODE.set(debug).unwrap();
     let os_input = get_os_input(get_server_os_input);
-    start_server_impl(Box::new(os_input), path);
+    start_server_impl(Box::new(os_input), path, initial_theme_mode);
 }
 
 #[cfg(feature = "web_server_capability")]
