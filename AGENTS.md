@@ -9,9 +9,9 @@ Shared Nova workflow and release policy live in the Nova repository's
   `13e1c25a2b1ef61d90ecd1765e660c575e90977b`.
 - Upstream Zellij owns Kitty graphics. Yazi `v26.8.15` uses Zellij's native
   direct-placement path; do not add a Unicode-placeholder translation layer.
-- Retain only the five behaviors named in `YAZELIX.md`: explicit appearance,
+- Retain only the six behaviors named in `YAZELIX.md`: explicit appearance,
   grouped status hints, isolated plugin permissions, stable stack ordering,
-  and disconnected-client cleanup.
+  disconnected-client cleanup, and bounded Unix session probes.
 - Re-derive retained behavior from current upstream source. Do not replay
   unrelated cleanup, formatting, dependency, or generated-asset changes.
 

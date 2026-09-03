@@ -150,6 +150,12 @@ fn assert_socket(name: &str) -> bool {
     let path = &*ZELLIJ_SOCK_DIR.join(name);
     match ipc_connect(path) {
         Ok(stream) => {
+            // A wedged server can accept connections without replying. Bound
+            // discovery so one stale session cannot block every Zellij command.
+            {
+                use interprocess::local_socket::prelude::*;
+                let _ = stream.set_recv_timeout(Some(Duration::from_secs(5)));
+            }
             let mut sender: IpcSenderWithContext<ClientToServerMsg> =
                 IpcSenderWithContext::new(stream);
             let _ = sender.send_client_msg(ClientToServerMsg::ConnStatus);

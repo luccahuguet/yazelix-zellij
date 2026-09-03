@@ -43,13 +43,14 @@
 
 This branch starts at exact upstream Zellij `v0.45.0`. Upstream owns Kitty
 graphics, including the direct-placement path used by Yazi `v26.8.15`.
-Nova retains five isolated behaviors that are not yet available upstream:
+Nova retains six isolated behaviors that are not yet available upstream:
 
 - explicit startup appearance with late-plugin theme replay
 - grouped `Ctrl-Alt`, `Ctrl`, and `Alt` status hints
 - an isolated packaged-plugin permission cache
 - stable stacked-pane ordering
 - disconnected-client plugin cleanup
+- bounded Unix session probes when a server accepts but never replies
 
 See [YAZELIX.md](YAZELIX.md) for the complete fork boundary and removal
 conditions.

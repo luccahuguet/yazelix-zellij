@@ -7,7 +7,7 @@ This branch is the clean Nova rebuild of the temporary Zellij fork.
 | Upstream base | `zellij-org/zellij` tag `v0.45.0` at `13e1c25a2b1ef61d90ecd1765e660c575e90977b` |
 | Previous fork | `yazelix_native_kitty_v1` at `bbccdea6eda81f314151160f9b3f8882a26478ec` |
 | Previous fork role | Behavior evidence and rollback only; do not replay mechanically |
-| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, isolated permission-cache selection, stable stacked-pane order, and upstream disconnected-client plugin cleanup |
+| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, isolated permission-cache selection, stable stacked-pane order, upstream disconnected-client plugin cleanup, and bounded Unix session probes |
 
 Upstream owns the complete Kitty graphics mechanism. Yazi `v26.8.15` detects
 Zellij and uses its native direct-placement path before falling back to Sixel.
@@ -69,6 +69,15 @@ gets a fresh ID, and after its plugins start, disconnected client-specific
 plugin instances are removed so stale orchestrators cannot process later pipes.
 This delta is removable when that pull request or equivalent cleanup lands
 upstream. Simultaneously connected clients retain upstream broadcast behavior.
+
+Unix session discovery gives the existing `ConnStatus` reply a five-second
+receive timeout. A server that accepts its socket while wedged is treated as
+unavailable instead of blocking every session-discovery command indefinitely.
+The session is not killed or deleted, and Windows discovery is unchanged. This
+delta is adapted from upstream
+[#5481](https://github.com/zellij-org/zellij/pull/5481), addresses
+[#5440](https://github.com/zellij-org/zellij/issues/5440), and is removable when
+upstream ships an equivalent bounded probe.
 
 The rebuild is accepted only after the exact child revision is published, the
 retained diff is reviewed, package and child-plugin checks pass, and fresh
