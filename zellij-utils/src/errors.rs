@@ -359,6 +359,7 @@ pub enum ScreenContext {
     ForwardDesktopNotifications,
     PreviousSwapLayout,
     NextSwapLayout,
+    ApplyTiledSwapLayout,
     OverrideLayout,
     OverrideLayoutComplete,
     QueryTabNames,

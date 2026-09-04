@@ -7,7 +7,7 @@ This branch is the clean Nova rebuild of the temporary Zellij fork.
 | Upstream base | `zellij-org/zellij` tag `v0.45.0` at `13e1c25a2b1ef61d90ecd1765e660c575e90977b` |
 | Previous fork | `yazelix_native_kitty_v1` at `bbccdea6eda81f314151160f9b3f8882a26478ec` |
 | Previous fork role | Behavior evidence and rollback only; do not replay mechanically |
-| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, isolated permission-cache selection, stable stacked-pane order, upstream disconnected-client plugin cleanup, and bounded Unix session probes |
+| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, isolated permission-cache selection, stable stacked-pane order, upstream disconnected-client plugin cleanup, bounded Unix session probes, and named tiled swap-layout selection |
 
 Upstream owns the complete Kitty graphics mechanism. Yazi `v26.8.15` detects
 Zellij and uses its native direct-placement path before falling back to Sixel.
@@ -78,6 +78,12 @@ delta is adapted from upstream
 [#5481](https://github.com/zellij-org/zellij/pull/5481), addresses
 [#5440](https://github.com/zellij-org/zellij/issues/5440), and is removable when
 upstream ships an equivalent bounded probe.
+
+Plugins can apply an exact named tiled swap layout without hiding or relaying
+out the floating pane layer. The operation leaves the visible floating pane and
+its focus unchanged, allowing Nova to resize the tiled workspace behind a
+popup without flashing the underlying panes. This delta is removable when
+upstream exposes equivalent named tiled-layout selection to plugins.
 
 The rebuild is accepted only after the exact child revision is published, the
 retained diff is reviewed, package and child-plugin checks pass, and fresh

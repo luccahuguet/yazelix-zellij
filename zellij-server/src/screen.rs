@@ -630,6 +630,7 @@ pub enum ScreenInstruction {
     },
     PreviousSwapLayout(ClientId, Option<NotificationEnd>),
     NextSwapLayout(ClientId, Option<NotificationEnd>),
+    ApplyTiledSwapLayout(ClientId, String),
     OverrideLayout(
         Option<PathBuf>,        // cwd (applies to all tabs)
         Option<TerminalAction>, // default_shell (applies to all tabs)
@@ -1149,6 +1150,7 @@ impl From<&ScreenInstruction> for ScreenContext {
             },
             ScreenInstruction::PreviousSwapLayout(..) => ScreenContext::PreviousSwapLayout,
             ScreenInstruction::NextSwapLayout(..) => ScreenContext::NextSwapLayout,
+            ScreenInstruction::ApplyTiledSwapLayout(..) => ScreenContext::ApplyTiledSwapLayout,
             ScreenInstruction::OverrideLayout(..) => ScreenContext::OverrideLayout,
             ScreenInstruction::OverrideLayoutComplete(..) => ScreenContext::OverrideLayoutComplete,
             ScreenInstruction::QueryTabNames(..) => ScreenContext::QueryTabNames,
@@ -10291,6 +10293,21 @@ pub(crate) fn screen_thread_main(
                     screen,
                     client_id,
                     |tab: &mut Tab, _client_id: ClientId| tab.next_swap_layout(),
+                    ?
+                );
+                screen.render(None)?;
+                screen.log_and_report_session_state()?;
+            },
+            ScreenInstruction::ApplyTiledSwapLayout(client_id, layout_name) => {
+                active_tab_and_connected_client_id!(
+                    screen,
+                    client_id,
+                    |tab: &mut Tab, _client_id: ClientId| {
+                        if !tab.apply_tiled_swap_layout(&layout_name)? {
+                            log::error!("Tiled swap layout not found or incompatible: {layout_name}");
+                        }
+                        Ok::<(), anyhow::Error>(())
+                    },
                     ?
                 );
                 screen.render(None)?;

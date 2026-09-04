@@ -1404,6 +1404,14 @@ pub fn next_swap_layout() {
     unsafe { host_run_plugin_command() };
 }
 
+/// Applies the named tiled swap layout without changing floating pane visibility.
+pub fn apply_tiled_swap_layout(layout_name: &str) {
+    let plugin_command = PluginCommand::ApplyTiledSwapLayout(layout_name.to_owned());
+    let protobuf_plugin_command: ProtobufPluginCommand = plugin_command.try_into().unwrap();
+    object_to_stdout(&protobuf_plugin_command.encode_to_vec());
+    unsafe { host_run_plugin_command() };
+}
+
 /// Change focus to the tab with the specified name
 pub fn go_to_tab_name(tab_name: &str) {
     let plugin_command = PluginCommand::GoToTabName(tab_name.to_owned());

@@ -1944,10 +1944,30 @@ impl Tab {
             self.tiled_panes.unset_fullscreen();
         }
         self.dissolve_stack_lists_for_classic_mutation();
-        if let Some(layout_candidate) = self
+        let layout_candidate = self
             .swap_layouts
-            .swap_tiled_panes(&self.tiled_panes, search_backwards)
-        {
+            .swap_tiled_panes(&self.tiled_panes, search_backwards);
+        self.apply_tiled_layout_candidate(layout_candidate)
+    }
+    pub fn apply_tiled_swap_layout(&mut self, layout_name: &str) -> Result<bool> {
+        let Some(layout_candidate) = self
+            .swap_layouts
+            .tiled_panes_layout_by_name(&self.tiled_panes, layout_name)
+        else {
+            return Ok(false);
+        };
+        if self.tiled_panes.fullscreen_is_active() {
+            self.tiled_panes.unset_fullscreen();
+        }
+        self.dissolve_stack_lists_for_classic_mutation();
+        self.apply_tiled_layout_candidate(Some(layout_candidate))?;
+        Ok(true)
+    }
+    fn apply_tiled_layout_candidate(
+        &mut self,
+        layout_candidate: Option<TiledPaneLayout>,
+    ) -> Result<()> {
+        if let Some(layout_candidate) = layout_candidate {
             let application_res = LayoutApplier::new(
                 &self.viewport,
                 &self.senders,

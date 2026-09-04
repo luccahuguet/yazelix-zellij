@@ -1178,6 +1178,12 @@ impl TryFrom<ProtobufPluginCommand> for PluginCommand {
                 }
                 Ok(PluginCommand::NextSwapLayout)
             },
+            Some(CommandName::ApplyTiledSwapLayout) => match protobuf_plugin_command.payload {
+                Some(Payload::ApplyTiledSwapLayoutPayload(layout_name)) => {
+                    Ok(PluginCommand::ApplyTiledSwapLayout(layout_name))
+                },
+                _ => Err("Mismatched payload for ApplyTiledSwapLayout"),
+            },
             Some(CommandName::GoToTabName) => match protobuf_plugin_command.payload {
                 Some(Payload::GoToTabNamePayload(tab_name)) => {
                     Ok(PluginCommand::GoToTabName(tab_name))
@@ -3154,6 +3160,10 @@ impl TryFrom<PluginCommand> for ProtobufPluginCommand {
             PluginCommand::NextSwapLayout => Ok(ProtobufPluginCommand {
                 name: CommandName::NextSwapLayout as i32,
                 payload: None,
+            }),
+            PluginCommand::ApplyTiledSwapLayout(layout_name) => Ok(ProtobufPluginCommand {
+                name: CommandName::ApplyTiledSwapLayout as i32,
+                payload: Some(Payload::ApplyTiledSwapLayoutPayload(layout_name)),
             }),
             PluginCommand::GoToTabName(tab_name) => Ok(ProtobufPluginCommand {
                 name: CommandName::GoToTabName as i32,
@@ -5280,6 +5290,19 @@ mod tests {
         match decoded {
             PluginCommand::ToggleFloatingPanes { tab_id } => assert_eq!(tab_id, Some(2)),
             other => panic!("expected ToggleFloatingPanes, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn apply_tiled_swap_layout_protobuf_round_trip() {
+        let original = PluginCommand::ApplyTiledSwapLayout("single_open".to_owned());
+        let protobuf: ProtobufPluginCommand = original.try_into().expect("encode");
+        let decoded: PluginCommand = protobuf.try_into().expect("decode");
+        match decoded {
+            PluginCommand::ApplyTiledSwapLayout(layout_name) => {
+                assert_eq!(layout_name, "single_open")
+            },
+            other => panic!("expected ApplyTiledSwapLayout, got {:?}", other),
         }
     }
 }

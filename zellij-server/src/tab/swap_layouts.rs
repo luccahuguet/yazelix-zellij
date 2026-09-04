@@ -214,6 +214,47 @@ impl SwapLayouts {
             LayoutConstraint::NoConstraint => true,
         }
     }
+    fn tiled_layout_candidate(
+        &self,
+        swap_layout: &SwapTiledLayout,
+        tiled_panes: &TiledPanes,
+    ) -> Option<TiledPaneLayout> {
+        for (constraint, layout) in swap_layout.0.iter() {
+            if self.state_fits_tiled_panes_constraint(constraint, tiled_panes) {
+                let display_area = PaneGeom::from(&*self.display_area.borrow());
+                if layout
+                    .position_panes_in_space(
+                        &display_area,
+                        Some(tiled_panes.visible_panes_count()),
+                        false,
+                        true,
+                    )
+                    .is_ok()
+                {
+                    return Some(layout.clone());
+                }
+            }
+        }
+        None
+    }
+    pub fn tiled_panes_layout_by_name(
+        &mut self,
+        tiled_panes: &TiledPanes,
+        layout_name: &str,
+    ) -> Option<TiledPaneLayout> {
+        let (position, layout) = self
+            .swap_tiled_layouts
+            .iter()
+            .enumerate()
+            .find(|(_, layout)| layout.1.as_deref() == Some(layout_name))
+            .and_then(|(position, layout)| {
+                self.tiled_layout_candidate(layout, tiled_panes)
+                    .map(|layout| (position, layout))
+            })?;
+        self.current_tiled_layout_position = position;
+        self.is_tiled_damaged = false;
+        Some(layout)
+    }
     pub fn swap_tiled_panes(
         &mut self,
         tiled_panes: &TiledPanes,
@@ -256,25 +297,8 @@ impl SwapLayouts {
                 .nth(self.current_tiled_layout_position)
             {
                 Some(swap_layout) => {
-                    for (constraint, layout) in swap_layout.0.iter() {
-                        if self.state_fits_tiled_panes_constraint(constraint, tiled_panes) {
-                            let focus_layout_if_not_focused = true;
-                            let display_area = self.display_area.borrow();
-                            // TODO: reuse the assets from position_panes_in_space here?
-                            let pane_count = tiled_panes.visible_panes_count();
-                            let display_area = PaneGeom::from(&*display_area);
-                            if layout
-                                .position_panes_in_space(
-                                    &display_area,
-                                    Some(pane_count),
-                                    false,
-                                    focus_layout_if_not_focused,
-                                )
-                                .is_ok()
-                            {
-                                return Some(layout.clone());
-                            }
-                        };
+                    if let Some(layout) = self.tiled_layout_candidate(swap_layout, tiled_panes) {
+                        return Some(layout);
                     }
                     progress_layout!();
                 },

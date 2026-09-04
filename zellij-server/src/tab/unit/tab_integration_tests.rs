@@ -5447,6 +5447,80 @@ fn can_swap_tiled_layout_at_runtime() {
 }
 
 #[test]
+fn can_apply_named_tiled_layout_while_floating_pane_is_visible() {
+    let size = Size {
+        cols: 121,
+        rows: 20,
+    };
+    let client_id = 1;
+    let swap_layouts = r#"
+        layout {
+            swap_tiled_layout name="vertical" {
+                tab max_panes=2 split_direction="vertical" {
+                    pane
+                    pane
+                }
+            }
+            swap_tiled_layout name="horizontal" {
+                tab max_panes=2 {
+                    pane
+                    pane
+                }
+            }
+        }
+    "#;
+    let layout = Layout::from_kdl(swap_layouts, Some("file_name.kdl".into()), None, None).unwrap();
+    let mut tab = create_new_tab_with_swap_layouts(
+        size,
+        ModeInfo::default(),
+        (
+            layout.swap_tiled_layouts.clone(),
+            layout.swap_floating_layouts.clone(),
+        ),
+        None,
+        true,
+        true,
+    );
+
+    tab.new_pane(
+        PaneId::Terminal(2),
+        None,
+        None,
+        false,
+        true,
+        NewPanePlacement::default(),
+        Some(client_id),
+        None,
+    )
+    .unwrap();
+    tab.toggle_floating_panes(Some(client_id), None, None)
+        .unwrap();
+    tab.new_pane(
+        PaneId::Terminal(3),
+        None,
+        None,
+        false,
+        true,
+        NewPanePlacement::default(),
+        Some(client_id),
+        None,
+    )
+    .unwrap();
+    let focused_floating_pane = tab.get_active_pane_id(client_id);
+
+    assert!(tab.apply_tiled_swap_layout("horizontal").unwrap());
+    assert!(tab.are_floating_panes_visible());
+    assert_eq!(tab.get_active_pane_id(client_id), focused_floating_pane);
+
+    tab.toggle_floating_panes(Some(client_id), None, None)
+        .unwrap();
+    assert_eq!(
+        tab.swap_layout_info(),
+        (Some("horizontal".to_owned()), false)
+    );
+}
+
+#[test]
 fn can_swap_floating_layout_at_runtime() {
     let size = Size {
         cols: 121,
