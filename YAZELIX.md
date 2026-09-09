@@ -7,11 +7,17 @@ This branch is the clean Nova rebuild of the temporary Zellij fork.
 | Upstream base | `zellij-org/zellij` tag `v0.45.0` at `13e1c25a2b1ef61d90ecd1765e660c575e90977b` |
 | Previous fork | `yazelix_native_kitty_v1` at `bbccdea6eda81f314151160f9b3f8882a26478ec` |
 | Previous fork role | Behavior evidence and rollback only; do not replay mechanically |
-| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, isolated permission-cache selection, stable stacked-pane order, upstream disconnected-client plugin cleanup, bounded Unix session probes, and named tiled swap-layout selection |
+| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, isolated permission-cache selection, stable stacked-pane order, upstream disconnected-client plugin cleanup, bounded Unix session probes, named tiled swap-layout selection, and native Kitty crop correctness |
 
-Upstream owns the complete Kitty graphics mechanism. Yazi `v26.8.15` detects
-Zellij and uses its native direct-placement path before falling back to Sixel.
+Upstream owns the Kitty graphics mechanism. Yazi detects Zellij and uses its
+native direct-placement path before falling back to Sixel.
 The previous Unicode-placeholder translator is intentionally absent.
+
+A narrow correction to upstream's native cropped placements keys each scaled
+raster by its source rectangle and output pixel size. Unscaled placements keep
+their source offsets, and cell resizing replaces stale rasters. This patch is
+removable when upstream ships equivalent crop handling; the emitted-pixel
+regression test covers distinct crops, resizing, and obsolete-raster cleanup.
 
 `--theme-mode dark|light` selects `theme_dark` or `theme_light` before a new
 session's first render. An explicitly themed session ignores ambient terminal

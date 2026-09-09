@@ -42,7 +42,8 @@
 # Nova Zellij fork
 
 This branch starts at exact upstream Zellij `v0.45.0`. Upstream owns Kitty
-graphics, including the direct-placement path used by Yazi `v26.8.15`.
+graphics, including the direct-placement path used by Yazi.
+Native crop correctness is patched locally pending an upstream fix.
 Nova retains seven isolated behaviors that are not yet available upstream:
 
 - explicit startup appearance with late-plugin theme replay
