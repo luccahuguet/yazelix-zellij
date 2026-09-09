@@ -167,8 +167,8 @@ impl SixelGrid {
                     if let Some(intersecting_rect) =
                         pixel_rect.intersecting_rect(&image_size_and_coordinates)
                     {
-                        if intersecting_rect.x == pixel_rect.x
-                            && intersecting_rect.y == pixel_rect.y
+                        if intersecting_rect.x == 0
+                            && intersecting_rect.y == 0
                             && intersecting_rect.height == pixel_rect.height
                             && intersecting_rect.width == pixel_rect.width
                         {
@@ -225,6 +225,20 @@ impl SixelGrid {
         }
     }
     pub fn drain_image_ids_to_reap(&mut self) -> Option<Vec<usize>> {
+        // Check once per render: text can erase an image one cell at a time.
+        let store = self.sixel_image_store.borrow();
+        self.sixel_image_locations.retain(|image_id, _| {
+            let has_pixels = store
+                .sixel_images
+                .get(image_id)
+                .map_or(false, |(image, _)| {
+                    image.pixels.iter().flatten().any(|pixel| pixel.on)
+                });
+            if !has_pixels {
+                self.image_ids_to_reap.push(*image_id);
+            }
+            has_pixels
+        });
         let images_to_reap = self.image_ids_to_reap.drain(..);
         if images_to_reap.len() > 0 {
             Some(images_to_reap.collect())
@@ -262,7 +276,10 @@ impl SixelGrid {
         }
     }
     pub fn next_image_id(&self) -> usize {
-        self.sixel_image_store.borrow().sixel_images.keys().len()
+        let mut store = self.sixel_image_store.borrow_mut();
+        let id = store.next_image_id;
+        store.next_image_id += 1;
+        id
     }
     pub fn new_sixel_image(&mut self, sixel_image_id: usize, sixel_image: SixelImage) {
         self.sixel_image_store
@@ -428,6 +445,7 @@ type SixelImageCache = HashMap<PixelRect, String>;
 #[derive(Debug, Clone, Default)]
 pub struct SixelImageStore {
     sixel_images: HashMap<usize, (SixelImage, SixelImageCache)>,
+    next_image_id: usize,
 }
 
 impl SixelImageStore {

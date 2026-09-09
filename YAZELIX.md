@@ -7,10 +7,10 @@ This branch is the clean Nova rebuild of the temporary Zellij fork.
 | Upstream base | `zellij-org/zellij` tag `v0.45.0` at `13e1c25a2b1ef61d90ecd1765e660c575e90977b` |
 | Previous fork | `yazelix_native_kitty_v1` at `bbccdea6eda81f314151160f9b3f8882a26478ec` |
 | Previous fork role | Behavior evidence and rollback only; do not replay mechanically |
-| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, isolated permission-cache selection, stable stacked-pane order, upstream disconnected-client plugin cleanup, bounded Unix session probes, named tiled swap-layout selection, and native Kitty crop correctness |
+| Current Yazelix runtime delta | Explicit startup theme mode, late-plugin theme replay, three-island status hints, isolated permission-cache selection, stable stacked-pane order, upstream disconnected-client plugin cleanup, bounded Unix session probes, named tiled swap-layout selection, native Kitty crop correctness, and Sixel preview replacement/cleanup |
 
-Upstream owns the Kitty graphics mechanism. Yazi detects Zellij and uses its
-native direct-placement path before falling back to Sixel.
+Upstream owns the Kitty and Sixel graphics mechanisms. Yazi 26.9.1 detects
+Zellij and prefers Sixel when advertised; Kitty-only hosts use direct placements.
 The previous Unicode-placeholder translator is intentionally absent.
 
 A narrow correction to upstream's native cropped placements keys each scaled
@@ -18,6 +18,15 @@ raster by its source rectangle and output pixel size. Unscaled placements keep
 their source offsets, and cell resizing replaces stale rasters. This patch is
 removable when upstream ships equivalent crop handling; the emitted-pixel
 regression test covers distinct crops, resizing, and obsolete-raster cleanup.
+
+Sixel replacement uses image-relative overlap coordinates to retire covered
+rasters away from the origin. The shared store allocates unique IDs across
+cleanup, and fully text-erased rasters are reaped before replay. These correct
+upstream v0.45.0 defects that blank Yazi previews during repeated browsing,
+including changes in image dimensions. Remove the patch when upstream passes
+`sixel_replacement_reaps_covered_images_without_reusing_live_ids` and fresh
+installed browsing through differently sized images. Existing Sixel parsers,
+storage, and rendering retain ownership; no adapter or dependency is added.
 
 `--theme-mode dark|light` selects `theme_dark` or `theme_light` before a new
 session's first render. An explicitly themed session ignores ambient terminal
